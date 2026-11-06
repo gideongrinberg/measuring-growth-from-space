@@ -10,10 +10,16 @@ knitr:
     dev: pdf
 citeproc: true
 bibliography: references.bib
-csl: "qje.csl"
 nocite: |
   @ciesin2011, @ciesin2005
 ---
+
+```{r}
+#| include: false
+library(tidyverse)
+library(targets)
+library(terra)
+```
 
 ## Introduction
 
@@ -28,5 +34,22 @@ Since 1992, satellites from the U.S. Air Force's Defense Meteorological Satellit
 [^1]: In 2019, the archive hosting the DMSP-OLS data moved from NGDC to the Payne Institute for Public Policy at the Colorado School of Mines, and the 2008 F15 files may have been lost in the shuffle. I was unable to locate another source for the file.
 
 Because of the curvature of the Earth, grid cell area varies with latitude; a pixel on the equator has an area of approximately 0.86 km$^2$, while a pixel on New York City has an area of approximately 0.65 km$^2$. Following the original paper, I account for this variation by computing the weighted average of lights across pixels in a country, weighting each pixel by its share of the country's land area. Land area is computed using Version 1 of the GRUMP data set (CIESIN 2011), and country boundaries are based on Version 3 of the GPW data set (CIESIN 2005). The original paper relied on an earlier version of GRUMP, which may introduce slight differences between my analysis and theirs.
+
+## Theoretical Framework
+
+```{r}
+#| label: fig-nightlights
+#| echo: false
+#| fig.cap: "Lights at Night in 2008"
+#| fig-width: 8
+#| out-width: 100%
+
+dmsp <- targets::tar_read(dmsp)
+here::here(dmsp[dmsp$year == 2008,]$lights[1]) |> 
+  rast() |> 
+  plot(col = map.pal("grey", 64))
+```
+
+@henderson2012 argue that "lights do reflect human economic activity," particularly the "intensity of income, which is increasing in both income per person and number of people." @fig-nightlights, which shows the average intensity of lights on Earth during 2008, seems to support this supposition. The contrast between Japan and India is particularly illustrative: despite their relatively similar population densities, Japan exhibits substantially higher light intensity, consistent with its higher GDP per capita. In Section I.A, the authors provide further illustrative examples to demonstrate how changes in light intensity can capture variation in economic growth.
 
 ## Bibliography

@@ -43,7 +43,7 @@ build_land_weights_tif <- function(grump_zip, template, out = "data/interim/land
   dir <- ensure_unzipped(grump_zip)
   grump <- rast(file.path(dir, "gluareag.asc"))
   crs(grump) <- "EPSG:4326"
-  grump <- min(grump / 100, cellSize(grump, unit = "km"))
+  grump <- min(grump, cellSize(grump, unit = "km"))
   grump <- classify(grump, cbind(NA, 0))
   land <- resample(grump, rast(template), method = "bilinear")
   dir.create(dirname(out),
