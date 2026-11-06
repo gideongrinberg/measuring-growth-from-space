@@ -1,0 +1,6 @@
+.Renviron
+.RData
+.Rhistory
+.Rproj.user/
+_targets/
+.DS_Store

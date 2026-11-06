@@ -1,0 +1,32 @@
+---
+title: "Replication of \"Measuring Growth from Outer Space\""
+author: "Gideon Grinberg"
+format: 
+  typst:
+    linkcolor: "#0000EE"
+editor: visual
+knitr:
+  opts_chunk:
+    dev: pdf
+citeproc: true
+bibliography: references.bib
+csl: "qje.csl"
+nocite: |
+  @ciesin2011, @ciesin2005
+---
+
+## Introduction
+
+GDP is among the most important measures of economic performance, but estimates of GDP are often quite uncertain. In the Penn World Tables, one of the standard compilations of cross-country GDP, for example, all 43 countries in Sub-Saharan Africa have margins of error of at least 20 percent, and some countries, such as Myanmar, have no data. Additionally, GDP data are not consistently available on a subnational level, limiting economists' ability to empirically investigate intranational variation in economic growth. @henderson2012 constructed a statistical framework for the use of satellite data on "night lights" as a measure of economic growth. Because the measurement error in night lights and official economic data are likely uncorrelated, their proxy measure can be combined with official measurements of GDP to improve estimates of economic growth.
+
+In this paper, I replicate Henderson et al.'s main analyses. My analysis was implemented in the R programming language [@rlang]. The source code is available on [Github](https://github.com/gideongrinberg/measuring-growth-from-space), along with instructions for reproducing the results. The code is structured to facilitate extending the analysis to periods outside the original study's sample, although doing so is outside the scope of this project.
+
+## Data
+
+Since 1992, satellites from the U.S. Air Force's Defense Meteorological Satellite Program have measured the intensity of Earth-based lights using their Operational Linescan System. The raw data from DMSP-OLS are processed by the National Geophysical Data Center by removing sources of intense natural light such as forest fires and aurora borealis, leaving only man-made lights, and then averaging data from all orbits of a given satellite in a given year to produce a satellite-year dataset. Each satellite-year dataset is a longitude-latitude grid reporting the intensity of light as a digital number (DN) between 0 and 63 for each 30 arcsecond output pixel. Henderson et al. analyzed 30 satellite-years but, for reasons that are not entirely clear, the data from 2008 for satellite F15 are no longer available, so my replication relies on 29 satellite-years.[^1]
+
+[^1]: In 2019, the archive hosting the DMSP-OLS data moved from NGDC to the Payne Institute for Public Policy at the Colorado School of Mines, and the 2008 F15 files may have been lost in the shuffle. I was unable to locate another source for the file.
+
+Because of the curvature of the Earth, grid cell area varies with latitude; a pixel on the equator has an area of approximately 0.86 km$^2$, while a pixel on New York City has an area of approximately 0.65 km$^2$. Following the original paper, I account for this variation by computing the weighted average of lights across pixels in a country, weighting each pixel by its share of the country's land area. Land area is computed using Version 1 of the GRUMP data set (CIESIN 2011), and country boundaries are based on Version 3 of the GPW data set (CIESIN 2005). The original paper relied on an earlier version of GRUMP, which may introduce slight differences between my analysis and theirs.
+
+## Bibliography
