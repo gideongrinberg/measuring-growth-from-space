@@ -50,24 +50,19 @@ download_dataverse_file <- function(doi,
   dest
 }
 
-fetch_wdi_vintage <- function(series = "NY.GDP.MKTP.KN", version = "200910") {
-  request("https://api.worldbank.org/v2") |>
-    req_url_path_append("sources/57/country/all/series",
-                        series,
-                        "time/all/version",
-                        version) |>
+fetch_wdi_vintage <- function(series, version = "200910") {
+  resp <- request("https://api.worldbank.org/v2/sources/57") |>
+    req_url_path_append("country", "all", "series", series,
+                        "time", "all", "version", version) |>
     req_url_query(format = "json", per_page = 20000) |>
     req_perform() |>
-    resp_body_json() |>
-    pluck("source", "data") |>
-    map(\(r) {
-      v <- set_names(map_chr(r$variable, "id"), map_chr(r$variable, "concept"))
-      tibble(
-        iso3 = v[["Country"]],
-        year = as.integer(sub("YR", "", v[["Time"]])),
-        gdp  = r$value %||% NA_real_
-      )
-    }) |>
-    list_rbind() |>
-    filter(!is.na(gdp))
+    resp_body_json()
+  
+  map(resp$source$data, \(r) {
+    ids <- set_names(map_chr(r$variable, "id"), map_chr(r$variable, "concept"))
+    tibble(iso3  = ids[["Country"]],
+           year  = as.integer(sub("YR", "", ids[["Time"]])),
+           value = r$value %||% NA_real_)
+  }) |>
+    list_rbind()
 }

@@ -16,26 +16,20 @@ list_dmsp_files <- function(dir) {
   
   inner_join(
     parse("\\.stable_lights\\.avg_vis\\.tif$", "lights"),
-    parse("\\.cf_cvg\\.tif$", "cloud_cov")
+    parse("\\.cf_cvg\\.tif$", "cloud_free_cvg")
   ) |>
     filter(year <= 2008)
 }
 
-# Load the GPWv3 country borders and make the geometry valid
-load_country_borders <- function(gpw_zip) {
-  sf_use_s2(FALSE)
-  dir <- ensure_unzipped(gpw_zip)
-  st_read(file.path(dir, "bnds/ntblnds.shp")) |>
-    st_make_valid() |>
-    group_by(Iso3v10) |>
-    summarise() |>
-    st_wrap_dateline() |>
-    st_crop(
-      xmin = -180,
-      ymin = -65,
-      xmax = 180,
-      ymax = 66.56
-    )
+# Open a DMSP file and crop out the artic
+make_template <- function(dmsp_file, n_arctic = 1016) {
+  r <- rast(dmsp_file)
+  rast(
+    ext(xmin(r), xmax(r), ymin(r), ymax(r) - n_arctic * yres(r)),
+    ncols = ncol(r),
+    nrows = nrow(r) - n_arctic,
+    crs = crs(r)
+  )
 }
 
 # Compute the land area per pixel using the GRUMP data and a template DMSP-OLS image
@@ -43,9 +37,19 @@ build_land_weights_tif <- function(grump_zip, template, out = "data/interim/land
   dir <- ensure_unzipped(grump_zip)
   grump <- rast(file.path(dir, "gluareag.asc"))
   crs(grump) <- "EPSG:4326"
+  
+  tmpl <- make_template(template)
   grump <- min(grump, cellSize(grump, unit = "km"))
   grump <- classify(grump, cbind(NA, 0))
-  land <- resample(grump, rast(template), method = "bilinear")
+  land <- grump |>
+    classify(cbind(NA, 0)) |>
+    shift(dx = 1 / 240, dy = -1 / 240) |>
+    crop(tmpl, snap = "near") |>
+    extend(tmpl, fill = 0)
+  
+  stopifnot(nrow(land) == nrow(tmpl), ncol(land) == ncol(tmpl))
+  ext(land) <- ext(tmpl)
+  
   dir.create(dirname(out),
              recursive = TRUE,
              showWarnings = FALSE)
@@ -53,49 +57,82 @@ build_land_weights_tif <- function(grump_zip, template, out = "data/interim/land
   out
 }
 
-# Compute the land area of each country by merging GRUMPS and GPW.
-calculate_country_land_area <- function(land_file, countries) {
-  sf_use_s2(FALSE)
-  exact_extract(rast(land_file), countries, "sum", append_cols = "Iso3v10") |>
-    rename(land_km2 = sum)
+build_countries_tif <- function(gpw_zip, template, out = "data/interim/countries.tif") {
+  dir <- ensure_unzipped(gpw_zip)
+  rasterize(
+    vect(file.path(dir, "bnds/ntblnds.shp")),
+    make_template(template),
+    field = "Iso3v10",
+    touches = F,
+    filename = out,
+    wopt = list(datatype = "INT2U"),
+    overwrite = T
+  )
+  out
 }
 
-process_dmsp_sat_year <- function(dmsp,
-                                  countries,
-                                  land_file,
-                                  country_land_area) {
-  lights.raster <- rast(dmsp$lights)
-  cloud_cov.raster <- rast(dmsp$cloud_cov)
-  lights.raster <- mask(lights.raster,
-                        cloud_cov.raster,
-                        maskvalues = 0,
-                        updatevalue = 255)
+# Compute the land area of each country by merging GRUMPS and GPW.
+calculate_country_land_area <- function(land_file, countries_file) {
+  zonal(rast(land_file),
+        rast(countries_file[1]),
+        fun = "sum",
+        na.rm = TRUE) |>
+    setNames(c("Iso3v10", "land_km2")) |>
+    mutate(Iso3v10 = as.character(Iso3v10))
+}
+
+gini_hist <- function(dn, n) {
+  N  <- sum(n)
+  mu <- sum(dn * n) / N
+  if (mu == 0)
+    return(NA_real_)
+  o <- order(dn)
+  dn <- dn[o]
+  n <- n[o]
+  below <- cumsum(n) - n
+  above <- N - cumsum(n)
+  sum(n * dn * (below - above)) / (N^2 * mu)
+}
+process_dmsp_sat_year <- function(dmsp, countries_file, land_file) {
+  countries <- rast(countries_file)
+  land <- rast(land_file)
+  lights <- rast(dmsp$lights)
+  cf_cov <- rast(dmsp$cloud_free_cvg)
   
-  # Compute the share of pixels (frac) and land area (weighted frac) at each DN value per country
-  df <- exact_extract(
-    lights.raster,
-    countries,
-    c("count", "frac", "weighted_frac"),
-    weights = rast(land_file),
-    append_cols = "Iso3v10",
-    max_cells_in_memory = 5e7
-  )
+  window(lights) <- ext(countries)
+  window(cf_cov) <- ext(countries)
+  sums <- zonal(c(lights * land, (cf_cov == 0) * land),
+                countries,
+                fun = "sum",
+                na.rm = T) |>
+    setNames(c("Iso3v10", "dn_area_sum", "missing_km2")) |>
+    mutate(
+      Iso3v10 = as.character(Iso3v10),
+      year = dmsp$year,
+      sat = dmsp$sat,
+      .before = 1
+    )
   
-  # Summarize country-level stats.
-  df |>
-    pivot_longer(contains("frac"),
-                 names_pattern = "^(weighted_frac|frac)_(\\d+)$",
-                 names_to = c(".value", "dn")) |>
-    rename(total_pixels = count) |>
-    mutate(dn = as.integer(dn), across(c(frac, weighted_frac), \(x) coalesce(x, 0))) |>
-    group_by(Iso3v10) |>
-    summarize(
-      missing_share = sum(weighted_frac[dn == 255]),
-      mean_dn = sum((dn * weighted_frac)[dn <= 63]) / sum(weighted_frac[dn <= 63]),
-      n_topcoded = first(total_pixels) * sum(frac[dn == 63]),
-      n_unlit = first(total_pixels) * sum(frac[dn == 0])
-    ) |>
-    left_join(country_land_area) |>
-    mutate(missing_km2 = missing_share * land_km2) |> 
-    mutate(year = dmsp$year, sat = dmsp$sat, .before = 1)
+  hist <- crosstab(c(countries, lights), long = TRUE) |>
+    setNames(c("Iso3v10", "dn", "n")) |>
+    mutate(dn = as.integer(as.character(dn)))
+  
+  counts <- hist |>
+    summarise(
+      n_topcoded = sum(n[dn == 63]),
+      n_unlit = sum(n[dn == 0]),
+      gini = gini_hist(dn, n),
+      hist = list(tibble(dn, n)),
+      .by = Iso3v10
+    )
+  
+  sums |>
+    left_join(counts, by = "Iso3v10") |>
+    mutate(
+      Iso3v10 = as.character(Iso3v10),
+      year = dmsp$year,
+      sat = dmsp$sat,
+      .before = 1
+    )
+  
 }

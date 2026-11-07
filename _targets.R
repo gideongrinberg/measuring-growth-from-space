@@ -4,6 +4,7 @@
 #   https://books.ropensci.org/targets/walkthrough.html#inspect-the-pipeline
 
 # Load packages required to define the pipeline:
+library(tidyverse)
 library(targets)
 library(tarchetypes) # Load other packages as needed.
 
@@ -72,7 +73,7 @@ tar_source("source/")
 # )
 
 tar_assign({
-  # Preprocess data
+  # Download data (geospatial)
   gpw_zip <- download_dataverse_file(
     "10.7910/DVN/BTCYL4",
     2.0,
@@ -88,18 +89,35 @@ tar_assign({
     "54e7f3fa2def04e3ac090b1f61f45e2c",
   ) |> tar_target(format = "file")
   
+  # Download data (economic)
+  electricity_df <- fetch_wdi_vintage("EG.USE.ELEC.KH") |>
+    rename(kwh = value) |>
+    tar_target()
+  
+  gdp_df <- inner_join(
+    fetch_wdi_vintage("NY.GDP.PCAP.KN") |> rename(gdppc = value),
+    fetch_wdi_vintage("SP.POP.TOTL") |> rename(pop = value),
+    by = c("iso3", "year")
+  ) |>
+    mutate(gdp = gdppc * pop) |>
+    rename(country = iso3) |> 
+    tar_target()
+  
+  # Preprocess data
   dmsp <- list_dmsp_files("data/raw/dmsp") |> tar_target(cue = tar_cue(mode = "always"))
   template_tif <- dmsp$lights[dmsp$sat == "10" &
                                 dmsp$year == 1992] |>
     tar_target(format = "file")
-  countries <- load_country_borders(gpw_zip) |> tar_target()
+  
+  countries_file <- build_countries_tif(gpw_zip, template_tif) |>
+    tar_target(format = "file")
   land_file <- build_land_weights_tif(grump_zip, template_tif) |>
     tar_target(format = "file")
-  country_land_area <- calculate_country_land_area(land_file, countries) |>
+  country_land_area <- calculate_country_land_area(land_file, countries_file) |>
     tar_target()
   
   # Process each satellite year into country-level stats
-  sat_year_data <- process_dmsp_sat_year(dmsp, countries, land_file, country_land_area) |>
+  sat_year_data <- process_dmsp_sat_year(dmsp, countries_file, land_file) |>
     tar_target(pattern = map(dmsp))
   lights_data <- sat_year_data |> tar_target()
 })
