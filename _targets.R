@@ -10,7 +10,7 @@ library(tarchetypes) # Load other packages as needed.
 
 # Set target options:
 tar_option_set(
-  packages = c("tidyverse", "sf", "terra", "exactextractr", "httr2"),
+  packages = c("tidyverse", "sf", "terra", "exactextractr", "httr2", "fixest"),
   # Packages that your targets need for their tasks.
   # format = "qs", # Optionally set the default storage format. qs is fast.
   #
@@ -72,7 +72,7 @@ tar_source("source/")
 #   )
 # )
 
-tar_assign({
+list(tar_assign({
   # Download data (geospatial)
   gpw_zip <- download_dataverse_file(
     "10.7910/DVN/BTCYL4",
@@ -100,7 +100,7 @@ tar_assign({
     by = c("iso3", "year")
   ) |>
     mutate(gdp = gdppc * pop) |>
-    rename(country = iso3) |> 
+    rename(country = iso3) |>
     tar_target()
   
   # Preprocess data
@@ -120,4 +120,4 @@ tar_assign({
   sat_year_data <- process_dmsp_sat_year(dmsp, countries_file, land_file) |>
     tar_target(pattern = map(dmsp))
   lights_data <- sat_year_data |> tar_target()
-})
+}), tar_analysis, tar_quarto(paper, "./paper/paper.qmd", quiet = F))

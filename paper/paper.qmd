@@ -1,15 +1,17 @@
 ---
 title: "Replication of \"Measuring Growth from Outer Space\""
+title-meta: "Replication of Measuring Growth from Outer Space"
 author: "Gideon Grinberg"
 format: 
-  typst:
-    linkcolor: "#0000EE"
+  pdf:
+    linkcolor: "blue"
+    keep-tex: true
 editor: visual
 knitr:
   opts_chunk:
     dev: pdf
 citeproc: true
-bibliography: references.bib
+bibliography: "references.bib"
 nocite: |
   @ciesin2011, @ciesin2005
 ---
@@ -18,14 +20,17 @@ nocite: |
 #| include: false
 library(tidyverse)
 library(targets)
+library(fixest)
 library(terra)
+
+source(here::here("source", "utils.R"))
 ```
 
 ## Introduction
 
 GDP is among the most important measures of economic performance, but estimates of GDP are often quite uncertain. In the Penn World Tables, one of the standard compilations of cross-country GDP, for example, all 43 countries in Sub-Saharan Africa have margins of error of at least 20 percent, and some countries, such as Myanmar, have no data. Additionally, GDP data are not consistently available on a subnational level, limiting economists' ability to empirically investigate intranational variation in economic growth. @henderson2012 constructed a statistical framework for the use of satellite data on "night lights" as a measure of economic growth. Because the measurement error in night lights and official economic data are likely uncorrelated, their proxy measure can be combined with official measurements of GDP to improve estimates of economic growth.
 
-In this paper, I replicate Henderson et al.'s main analyses. My analysis was implemented in the R programming language [@rlang]. The source code is available on [Github](https://github.com/gideongrinberg/measuring-growth-from-space), along with instructions for reproducing the results. The code is structured to facilitate extending the analysis to periods outside the original study's sample, although doing so is outside the scope of this project.
+In this paper, I replicate Henderson et al.'s main analyses. My analysis was implemented in the R programming language [@rlang]. The source code is available on [Github](https://github.com/gideongrinberg/measuring-growth-from-space), along with instructions for reproducing the results. The code is structured to facilitate extending the analysis to periods outside the original study's sample, although such analyses are outside the scope of the project.
 
 ## Data
 
@@ -40,7 +45,7 @@ Because of the curvature of the Earth, grid cell area varies with latitude; a pi
 ```{r}
 #| label: fig-nightlights
 #| echo: false
-#| fig.cap: "Lights at Night in 2008"
+#| fig-cap: "Lights at Night in 2008"
 #| fig-width: 8
 #| out-width: 100%
 
@@ -51,5 +56,17 @@ here::here(dmsp[dmsp$year == 2008,]$lights[1]) |>
 ```
 
 @henderson2012 argue that "lights do reflect human economic activity," particularly the "intensity of income, which is increasing in both income per person and number of people." @fig-nightlights, which shows the average intensity of lights on Earth during 2008, seems to support this supposition. The contrast between Japan and India is particularly illustrative: despite their relatively similar population densities, Japan exhibits substantially higher light intensity, consistent with its higher GDP per capita. In Section I.A, the authors provide further illustrative examples to demonstrate how changes in light intensity can capture variation in economic growth.
+
+## Analysis
+
+```{r}
+#| tbl-cap: "Baseline Results, 1992-2008"
+#| echo: false
+#| message: false
+#| warning: false
+#| results: asis
+
+tar_read(main_models) |> regtab()
+```
 
 ## Bibliography
