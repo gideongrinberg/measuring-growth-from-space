@@ -4,7 +4,8 @@ regtab <- function (models,
                     hide_fe = TRUE,
                     fitstats = c(n = "Observations", wr2 = "Within R$^2$"),
                     count_fes = c(country = "Countries"),
-                    counts_after = "n") {
+                    counts_after = "n",
+                    ...) {
   purrr::iwalk(
     count_fes,
     \(label, fe) fixest::fitstat_register(
@@ -19,12 +20,12 @@ regtab <- function (models,
   
   types <- names(fitstats)
   types <- types |>
-    append(paste0("n_", names(count_fes)),
+    append(paste0("n_", names(count_fes), recycle0 = T),
            after = match(counts_after, types, nomatch = length(types)))
   
   dict <- c(
     coefs,
-    "country" = "Country",
+    "country" = "country",
     "ln(gdp)" = "ln(GDP)",
     "ln(kwh)" = "ln(KWH)",
     "gini" = "Spatial Gini",
@@ -36,14 +37,11 @@ regtab <- function (models,
              "*" = 0.10)
   foot <- paste("Signif. codes:", paste0(names(codes), ": ", codes, collapse = ", "))
   
-  fixest::etable(
+  rlang::exec(
+    fixest::etable,
     models,
     drop = drop,
-    drop.section =
-      if (hide_fe)
-        "fixef"
-    else
-      NULL,
+    drop.section = c("fixef", "slope"),
     dict = dict,
     tex = !interactive(),
     fitstat = types,
@@ -52,6 +50,7 @@ regtab <- function (models,
       signif.code = codes,
       tablefoot = T,
       tablefoot.value = "default"
-    )
+    ),
+    ...
   )
 }

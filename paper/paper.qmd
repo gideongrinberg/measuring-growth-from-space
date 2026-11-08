@@ -6,6 +6,9 @@ format:
   pdf:
     linkcolor: "blue"
     keep-tex: true
+header-includes:
+  - \KOMAoption{captions}{tableheading}
+  - \usepackage{makecell}
 editor: visual
 knitr:
   opts_chunk:
@@ -69,4 +72,45 @@ here::here(dmsp[dmsp$year == 2008,]$lights[1]) |>
 tar_read(main_models) |> regtab()
 ```
 
+```{r}
+#| tbl-cap: "Lights Up/Down, Time Trend, and Long Differences"
+#| echo: false
+#| message: false
+#| warning: false
+#| results: asis
+ fixest::fitstat_register(
+   type = "r2_any",
+   alias = "(Within) R$^2$",
+   fun = \(x) if (length(x$fixef_vars))
+     fixest::fitstat(x, "wr2")[[1]]
+   else
+     fixest::fitstat(x, "r2")[[1]]
+ )
+
+ headers = c("\\makecell{Fixed\\\\effects}", "\\makecell{Country\\\\time trend}",
+             "\\makecell{Demeaned\\\\plus/minus}", "\\makecell{Long\\\\difference}",
+             "\\makecell{Long\\\\difference}")
+
+tar_read(secondary_models) |> regtab(
+  coefs = c(
+    ln_lights = "ln(lights/area)",
+    lights_up = "$|+\\Delta$ ln(lights/area)$|$",
+    lights_down = "$|-\\Delta$ ln(lights/area)$|$",
+    d_ln_topcoded = "ln(top-coded + 1)",
+    d_ln_unlit = "ln(unlit + 1)",
+    d_ln_lights = "ln(lights/area)"
+  ),
+  drop = c("^year", "^country", "Intercept|Constant"),
+  fitstats = c(n = "Observations", g = "Countries", r2_any = "(Within) R$^2$"),
+  count_fes = NULL,
+  headers = headers,
+  depvar = FALSE,
+  float = F,
+  extralines = list(
+    "Time effects" = c("Yes", "Yes", "In demean", "No", "No"),
+    "Country effects" = c("Yes", "Yes", "In demean", "No", "No")
+  )
+)
+```
+\clearpage
 ## Bibliography
