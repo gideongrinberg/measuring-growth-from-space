@@ -129,7 +129,7 @@ make_secondary_models <- function(df.clean) {
       cluster = ~ country
     ),
     "Country Time Trend" = feols(
-      ln(gdp) ~ ln(lights / area) + i(year) | country[year],
+      ln(gdp) ~ ln(lights / area) + i(year) + i(country, year),
       data = df.clean,
       cluster = ~ country
     ),

@@ -7,8 +7,14 @@ format:
     keep-tex: true
 header-includes:
   - \KOMAoption{captions}{tableheading}
-  - \usepackage{makecell}
   - \usepackage{placeins}
+  - \usepackage{makecell}
+  - \usepackage{caption}
+  - \AddToHook{env/table/begin}{\small}
+  - \DeclareCaptionLabelSeparator{emdash}{---}
+  - \captionsetup[table]{font=sc, labelsep=emdash}
+  - \SetTblrInner{cells={font=\small}}
+  - \SetTblrStyle{note}{font=\small}
 editor: visual
 knitr:
   opts_chunk:
@@ -29,6 +35,14 @@ library(terra)
 library(tinytable)
 
 source(here::here("source", "utils.R"))
+
+theme_paper <- function(x, ...) {
+  x |>
+    theme_tinytable() |>
+    style_tt(j = 2:ncol(x), align = "c") |>
+    theme_latex(inner = "hspan=even")
+}
+options(tinytable_tt_theme = theme_paper)
 ```
 
 ## Introduction
@@ -58,7 +72,7 @@ tar_read(main_models) |>
   regtab(
     coef_map = c(
       "ln(lights/area)" = "ln(lights/area)",
-      "ln(lights/area)^2" = "ln(lights/area)$^2$",
+      "I(ln(lights/area)^2)" = "ln(lights/area)$^2$",
       "ln(topcoded + 1)" = "ln(top-coded + 1)",
       "ln(unlit + 1)" = "ln(unlit + 1)",
       "gini" = "Spatial Gini",
@@ -190,11 +204,11 @@ tar_read(solved_model) |>
 
 tar_read(growth_rates) |> 
   inner_join(tar_read(iso2name)) |> 
-  transmute("Country" = country, "ISO" = iso, "WDI GDP<br>(LCU)" = wdi,  "Optimal combination of<br>fitted lights and WDI GDP" = optimal, "Difference" = diff) |> 
+  transmute("Country" = country, "ISO" = iso, "WDI GDP<br>(LCU)" = wdi, "Fitted<br>lights" = fitted_lights, "Optimal combination of<br>fitted lights and WDI GDP" = optimal, "Difference" = diff) |> 
   mutate(across(where(is.numeric), \(x) x * 100)) |> 
   tt() |> 
-  style_tt(j = 2:4, align = "c") |>
-  style_tt(j = 5, align = "r") |> 
+  style_tt(j = 2:5, align = "c") |>
+  style_tt(j = 6, align = "r") |> 
   style_tt(i = 0, alignv = "m") |> 
   format_tt(digits = 2, num_fmt = "decimal", num_zero = TRUE, linebreak = "<br>")
 ```
