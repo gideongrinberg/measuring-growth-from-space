@@ -25,6 +25,7 @@ library(tidyverse)
 library(targets)
 library(fixest)
 library(terra)
+library(tinytable)
 
 source(here::here("source", "utils.R"))
 ```
@@ -152,6 +153,29 @@ rated_models <- tar_read(rated_models)
 make_table4(rated_models$a, rated_models$b, rated_models$sq)
 ```
 
+```{r}
+#| tbl-cap: "Calibrating the Statistical Model"
+#| echo: false
+#| results: asis
+tar_read(solved_model) |>
+  select(starts_with("phi"), beta, starts_with("lambda")) |>
+  setNames(c(
+    "Good data<br>countries:<br>$\\phi_g$",
+    "Bad data<br>countries:<br>$\\phi_b$",
+    "Structural effect of<br>true income growth<br>on lights growth $\\beta$",
+    "Good data<br>countries:<br>$\\lambda_g$",
+    "Bad data<br>countries:<br>$\\lambda_b$"
+  )) |>
+  tt(width = c(0.16, 0.16, 0.26, 0.21, 0.21), notes = "30 bad data countries, 83 good data countries.") |>
+  format_tt(j = 1:5, digits = 3, num_fmt = "decimal", num_zero = TRUE) |>
+  format_tt(j = 1, digits = 1, num_fmt = "decimal") |>
+  group_tt(j = list(
+    "Signal to total variance<br>of measured income" = 1:2,
+    "Weight for measured income growth in<br>calculation of true growth" = 4:5
+  )) |>
+  format_tt(i = 0:-1, linebreak = "<br>") |>
+  style_tt(j = 1:5, align = "c")
+```
 \FloatBarrier
 
 ## Bibliography
