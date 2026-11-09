@@ -1,6 +1,5 @@
 ---
 title: "Replication of \"Measuring Growth from Outer Space\""
-title-meta: "Replication of Measuring Growth from Outer Space"
 author: "Gideon Grinberg"
 format: 
   pdf:
@@ -9,6 +8,7 @@ format:
 header-includes:
   - \KOMAoption{captions}{tableheading}
   - \usepackage{makecell}
+  - \usepackage{placeins}
 editor: visual
 knitr:
   opts_chunk:
@@ -43,74 +43,115 @@ Since 1992, satellites from the U.S. Air Force's Defense Meteorological Satellit
 
 Because of the curvature of the Earth, grid cell area varies with latitude; a pixel on the equator has an area of approximately 0.86 km$^2$, while a pixel on New York City has an area of approximately 0.65 km$^2$. Following the original paper, I account for this variation by computing the weighted average of lights across pixels in a country, weighting each pixel by its share of the country's land area. Land area is computed using Version 1 of the GRUMP data set (CIESIN 2011), and country boundaries are based on Version 3 of the GPW data set (CIESIN 2005). The original paper relied on an earlier version of GRUMP, which may introduce slight differences between my analysis and theirs.
 
-## Theoretical Framework
-
-```{r}
-#| label: fig-nightlights
-#| echo: false
-#| fig-cap: "Lights at Night in 2008"
-#| fig-width: 8
-#| out-width: 100%
-
-dmsp <- targets::tar_read(dmsp)
-here::here(dmsp[dmsp$year == 2008,]$lights[1]) |> 
-  rast() |> 
-  plot(col = map.pal("grey", 64))
-```
-
-@henderson2012 argue that "lights do reflect human economic activity," particularly the "intensity of income, which is increasing in both income per person and number of people." @fig-nightlights, which shows the average intensity of lights on Earth during 2008, seems to support this supposition. The contrast between Japan and India is particularly illustrative: despite their relatively similar population densities, Japan exhibits substantially higher light intensity, consistent with its higher GDP per capita. In Section I.A, the authors provide further illustrative examples to demonstrate how changes in light intensity can capture variation in economic growth.
+\FloatBarrier
 
 ## Analysis
 
 ```{r}
 #| tbl-cap: "Baseline Results, 1992-2008"
 #| echo: false
-#| message: false
-#| warning: false
 #| results: asis
 
-tar_read(main_models) |> regtab()
+tar_read(main_models) |>
+  regtab(
+    coef_map = c(
+      "ln(lights/area)" = "ln(lights/area)",
+      "ln(lights/area)^2" = "ln(lights/area)$^2$",
+      "ln(topcoded + 1)" = "ln(top-coded + 1)",
+      "ln(unlit + 1)" = "ln(unlit + 1)",
+      "gini" = "Spatial Gini",
+      "ln(kwh)" = "ln(KWH)"
+    )
+  ) |>
+  tinytable::group_tt(j = list("ln(GDP)" = 2:8))
 ```
 
 ```{r}
 #| tbl-cap: "Lights Up/Down, Time Trend, and Long Differences"
 #| echo: false
-#| message: false
-#| warning: false
 #| results: asis
- fixest::fitstat_register(
-   type = "r2_any",
-   alias = "(Within) R$^2$",
-   fun = \(x) if (length(x$fixef_vars))
-     fixest::fitstat(x, "wr2")[[1]]
-   else
-     fixest::fitstat(x, "r2")[[1]]
- )
-
- headers = c("\\makecell{Fixed\\\\effects}", "\\makecell{Country\\\\time trend}",
-             "\\makecell{Demeaned\\\\plus/minus}", "\\makecell{Long\\\\difference}",
-             "\\makecell{Long\\\\difference}")
-
-tar_read(secondary_models) |> regtab(
-  coefs = c(
-    ln_lights = "ln(lights/area)",
-    lights_up = "$|+\\Delta$ ln(lights/area)$|$",
-    lights_down = "$|-\\Delta$ ln(lights/area)$|$",
-    d_ln_topcoded = "ln(top-coded + 1)",
-    d_ln_unlit = "ln(unlit + 1)",
-    d_ln_lights = "ln(lights/area)"
-  ),
-  drop = c("^year", "^country", "Intercept|Constant"),
-  fitstats = c(n = "Observations", g = "Countries", r2_any = "(Within) R$^2$"),
-  count_fes = NULL,
-  headers = headers,
-  depvar = FALSE,
-  float = F,
-  extralines = list(
-    "Time effects" = c("Yes", "Yes", "In demean", "No", "No"),
-    "Country effects" = c("Yes", "Yes", "In demean", "No", "No")
-  )
-)
+tar_read(secondary_models) |>
+  regtab(
+    coef_map = c(
+      "ln(lights/area)" = "ln(lights/area)",
+      "d_ln_lights" = "ln(lights/area)",
+      "lights_up" = "$|+\\Delta$ ln(lights/area)$|$",
+      "lights_down" = "$|-\\Delta$ ln(lights/area)$|$",
+      "d_ln_topcoded" = "ln(top-coded + 1)",
+      "d_ln_unlit" = "ln(unlit + 1)"
+    ),
+    col_names = paste0("(", 1:5, ")"),
+    rows = list(
+      "Time effects" = c("Yes", "Yes", "In demean", "No", "No"),
+      "Country effects" = c("Yes", "Yes", "In demean", "No", "No")
+    )
+  ) |>
+  tinytable::group_tt(j = list(
+    "Fixed effects" = 2,
+    "Country time trend" = 3,
+    "Demeaned plus/minus" = 4,
+    "Long difference" = 5:6
+  ))
 ```
+
+```{r}
+#| tbl-cap: "Results for World Bank-Rated Countries"
+#| results: asis
+#| echo: false
+make_table4 <- function(models_a, models_b, sq_models) {
+  pick_terms <- function(model, labels) {
+    modelsummary::get_estimates(model) |>
+      filter(term %in% names(labels)) |>
+      mutate(term = labels[term])
+  }
+  as_ms <- \(tidy, glance) structure(list(tidy = tidy, glance = glance), class = "modelsummary_list")
+  r2_any <- \(m) if (length(m$fixef_vars))
+    fixest::fitstat(m, "wr2")[[1]]
+  else
+    fixest::fitstat(m, "r2")[[1]]
+  
+  panel_a <- map(models_a, \(m) as_ms(
+    pick_terms(m, c(
+      "ln(lights/area)" = "ln(lights/area)",
+      "d_ln_lights" = "ln(lights/area)",
+      "(Intercept)" = "Constant"
+    )),
+    data.frame(nobs = nobs(m), countries = fixest::fitstat(m, "g")[[1]], r2_any = r2_any(m))
+  ))
+  
+  panel_b <- map2(models_b, sq_models, \(b, s) as_ms(
+    bind_rows(
+      pick_terms(b, c(
+        "ln(lights/area):good" = "Difference in $\\psi$ for good data countries",
+        "good:d_ln_lights" = "Difference in $\\psi$ for good data countries"
+      )),
+      pick_terms(s, c("good" = "Squared residuals on good data dummy"))
+    ),
+    data.frame(none = NA)
+  ))
+  
+  names(panel_a) <- names(panel_b) <- c("Fixed effects", "Country time trend", "Long difference")
+  
+  modelsummary::modelsummary(
+    list("Panel A" = panel_a, "Panel B" = panel_b),
+    shape = "rbind",
+    gof_map = tibble::tribble(
+      ~raw, ~clean, ~fmt,
+      "nobs", "Observations", 0,
+      "countries", "Countries", 0,
+      "r2_any", "(Within) $R^2$", 3
+    ),
+    fmt = 4,
+    stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
+    escape = F,
+    output = "tinytable"
+  )
+}
+
+rated_models <- tar_read(rated_models)
+make_table4(rated_models$a, rated_models$b, rated_models$sq)
+```
+
+\FloatBarrier
 
 ## Bibliography

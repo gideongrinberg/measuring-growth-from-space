@@ -1,56 +1,68 @@
-regtab <- function (models,
-                    coefs = c(),
-                    drop = "year",
-                    hide_fe = TRUE,
-                    fitstats = c(n = "Observations", wr2 = "Within R$^2$"),
-                    count_fes = c(country = "Countries"),
-                    counts_after = "n",
-                    ...) {
-  purrr::iwalk(
-    count_fes,
-    \(label, fe) fixest::fitstat_register(
-      type = paste0("n_", fe),
-      alias = label,
-      fun = \(x) if (fe %in% names(x$fixef_sizes))
-        x$fixef_sizes[[fe]]
+regtab <- function(models,
+                   coef_map = NULL,
+                   col_names = NULL,
+                   rows = NULL,
+                   notes = "Clustered (country) standard errors in parentheses.",
+                   ...) {
+  if (!is.null(col_names))
+    names(models) <- col_names
+  else if (is.null(names(models)))
+    names(models) <- paste0("(", seq_along(models), ")")
+  
+  gof_extra <- function(model, ...) {
+    data.frame(
+      countries = fixest::fitstat(model, "g")[[1]],
+      r2_any = if (length(model$fixef_vars))
+        fixest::fitstat(model, "wr2")[[1]]
       else
-        NA
+        fixest::fitstat(model, "r2")[[1]]
     )
+  }
+  
+  gof_map <- tibble::tribble(
+    ~ raw,
+    ~ clean,
+    ~ fmt,
+    "nobs",
+    "Observations",
+    0,
+    "countries",
+    "Countries",
+    0,
+    "r2_any",
+    "(Within) $R^2$",
+    3
   )
   
-  types <- names(fitstats)
-  types <- types |>
-    append(paste0("n_", names(count_fes), recycle0 = T),
-           after = match(counts_after, types, nomatch = length(types)))
+  add <- NULL
+  if (!is.null(rows)) {
+    add <- data.frame(term = names(rows),
+                      do.call(rbind, rows),
+                      check.names = F)
+    names(add) <- c("term", names(models))
+    present <- intersect(names(coef_map), unlist(lapply(models, \(m) names(coef(
+      m
+    )))))
+    attr(add, "position") <- 2 * length(unique(coef_map[present])) + seq_len(nrow(add))
+  }
   
-  dict <- c(
-    coefs,
-    "country" = "country",
-    "ln(gdp)" = "ln(GDP)",
-    "ln(kwh)" = "ln(KWH)",
-    "gini" = "Spatial Gini",
-    fitstats
-  )
-  
-  codes <- c("***" = 0.01,
-             "**" = 0.05,
-             "*" = 0.10)
-  foot <- paste("Signif. codes:", paste0(names(codes), ": ", codes, collapse = ", "))
-  
-  rlang::exec(
-    fixest::etable,
-    models,
-    drop = drop,
-    drop.section = c("fixef", "slope"),
-    dict = dict,
-    tex = !interactive(),
-    fitstat = types,
-    style.tex = fixest::style.tex(
-      "aer",
-      signif.code = codes,
-      tablefoot = T,
-      tablefoot.value = "default"
+  defaults <- list(
+    coef_map = coef_map,
+    coef_omit = if (is.null(coef_map))
+      "^year|^country|Intercept",
+    gof_map = gof_map,
+    gof_function = gof_extra,
+    add_rows = add,
+    stars = c(
+      "*" = 0.1,
+      "**" = 0.05,
+      "***" = 0.01
     ),
-    ...
+    notes = notes,
+    escape = F,
+    output = "tinytable"
   )
+  args <- utils::modifyList(Filter(Negate(is.null), defaults), list(...))
+  
+  rlang::exec(modelsummary::modelsummary, models, !!!args)
 }

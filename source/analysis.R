@@ -6,6 +6,9 @@ tar_analysis <- tar_assign({
   
   secondary_models <- make_secondary_models(df.clean) |>
     tar_target()
+  
+  rated_models <- make_rated_models(df.clean, wb_quality.df) |> 
+    tar_target()
 })
 
 ln <- \(x) log(x, base = exp(1))
@@ -144,3 +147,64 @@ make_secondary_models <- function(df.clean) {
   models
 }
 
+make_rated_models <- function(df.clean, wb_quality.df) {
+  ratings <- wb_quality.df |>
+    filter(!country %in% c("PRI", "SAU", "TUN")) |>
+    transmute(country, good = as.integer(rating > 3))
+  
+  rated.df <- df.clean |>
+    inner_join(ratings, by = "country") |>
+    mutate(t = year - 1992)
+  
+  long_diffs.df <- df.clean |>
+    calculate_demeaned_lights() |>
+    calculate_long_diffs() |>
+    inner_join(ratings, by = "country")
+  
+  a <- list(
+    feols(
+      ln(gdp) ~ ln(lights / area) + i(year) |
+        country,
+      data = rated.df,
+      cluster = ~ country
+    ),
+    feols(
+      ln(gdp) ~ ln(lights / area) + i(year) + i(country, t) |
+        country,
+      data = rated.df,
+      cluster = ~ country
+    ),
+    feols(
+      d_ln_gdp ~ d_ln_lights,
+      data = long_diffs.df,
+      cluster = ~ country
+    )
+  )
+  
+  b <- list(
+    feols(
+      ln(gdp) ~ ln(lights / area) + ln(lights / area):good + i(year) |
+        country,
+      data = rated.df,
+      cluster = ~ country
+    ),
+    feols(
+      ln(gdp) ~ ln(lights / area) + ln(lights / area):good + i(year) + i(country, t) |
+        country,
+      data = rated.df,
+      cluster = ~ country
+    ),
+    feols(
+      d_ln_gdp ~ good * d_ln_lights,
+      data = long_diffs.df,
+      cluster = ~ country
+    )
+  )
+  
+  sq <- map2(a, list(rated.df, rated.df, long_diffs.df), \(m, d) {
+    d <- d[fixest::obs(m), ] |> mutate(e2 = resid(m)^2)
+    feols(e2 ~ good, data = d, vcov = "iid")
+  })
+  
+  list(a = a, b = b, sq = sq)
+}
