@@ -90,6 +90,10 @@ list(tar_assign({
   ) |> tar_target(format = "file")
   
   # Download data (economic)
+  iso2name <- WDI::WDIcache()$country[,c("iso3c", "country")] |> 
+    rename(iso = iso3c) |> 
+    tar_target()
+  
   electricity_df <- fetch_wdi_vintage("EG.USE.ELEC.KH") |>
     rename(kwh = value) |>
     tar_target()

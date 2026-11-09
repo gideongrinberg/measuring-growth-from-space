@@ -7,7 +7,13 @@ tar_analysis <- tar_assign({
   secondary_models <- make_secondary_models(df.clean) |>
     tar_target()
   
-  rated_models <- make_rated_models(df.clean, wb_quality.df) |> 
+  rated_models <- make_rated_models(df.clean, wb_quality.df) |>
+    tar_target()
+  
+  solved_model <- solve_model(df.clean, wb_quality.df) |> 
+    tar_target()
+  
+  growth_rates <- calculate_growth_rates(df.clean, wb_quality.df, solved_model) |> 
     tar_target()
 })
 
@@ -147,11 +153,14 @@ make_secondary_models <- function(df.clean) {
   models
 }
 
-make_rated_models <- function(df.clean, wb_quality.df) {
-  ratings <- wb_quality.df |>
+make_ratings <- function(wb_quality.df) {
+  wb_quality.df |>
     filter(!country %in% c("PRI", "SAU", "TUN")) |>
     transmute(country, good = as.integer(rating > 3))
-  
+}
+
+make_rated_models <- function(df.clean, wb_quality.df) {
+  ratings <- make_ratings(wb_quality.df)
   rated.df <- df.clean |>
     inner_join(ratings, by = "country") |>
     mutate(t = year - 1992)
@@ -208,3 +217,56 @@ make_rated_models <- function(df.clean, wb_quality.df) {
   
   list(a = a, b = b, sq = sq)
 }
+
+solve_model <- function(df.clean, wb_quality.df,
+                        phi_g = c(1, 0.9, 0.8, 0.7, 0.6)) {
+  
+  ratings <- make_ratings(wb_quality.df)
+  long_diffs.df <- df.clean |> 
+    calculate_demeaned_lights() |> 
+    calculate_long_diffs() |> 
+    inner_join(ratings, by = "country")
+  
+  var_zg <- var(long_diffs.df$d_ln_gdp[long_diffs.df$good == 1])
+  var_zb <- var(long_diffs.df$d_ln_gdp[long_diffs.df$good == 0])
+  var_x <- var(long_diffs.df$d_ln_lights)
+  cov_xz <- cov(long_diffs.df$d_ln_lights, long_diffs.df$d_ln_gdp)
+  weight <- \(s2z, s2y, s2x) s2x * s2y / (s2z * var_x + s2x * s2y)
+  
+  tibble(phi_g = phi_g) |>
+    mutate(
+      s2y = phi_g * var_zg,
+      s2zg = var_zg - s2y,
+      s2zb = var_zb - s2y,
+      phi_b = s2y / var_zb,
+      beta = cov_xz / s2y,
+      s2x = var_x - beta^2 * s2y,
+      lambda_g = weight(s2zg, s2y, s2x),
+      lambda_b = weight(s2zb, s2y, s2x)
+    )
+}
+
+calculate_growth_rates <- function(df.clean, wb_quality.df, solved_model) {
+  ratings <- make_ratings(wb_quality.df)
+  lambda <- solved_model |> 
+    filter(phi_g == 0.9) |> 
+    pull(lambda_b)
+  
+  bad.df <- calculate_demeaned_lights(df.clean) |> 
+    calculate_long_diffs() |> 
+    inner_join(ratings) |> 
+    filter(!good)
+  
+  fit <- feols(d_ln_gdp ~ d_ln_lights, data = bad.df, vcov = "hetero")
+  bad.df$fitted_lights <- fitted(fit)
+  bad.df |> 
+    transmute(
+      iso = country,
+      wdi = d_ln_gdp,
+      fitted_lights = fitted(fit),
+      optimal = (1-lambda)*(fitted_lights) + lambda*(wdi),
+      diff = optimal - wdi
+    ) |> 
+    mutate(across(where(is.numeric), ~ (exp(.x / 13) - 1)))|> 
+    arrange(diff)
+}  
