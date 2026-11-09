@@ -49,7 +49,7 @@ Because of the curvature of the Earth, grid cell area varies with latitude; a pi
 ## Analysis
 
 ```{r}
-#| tbl-cap: "Baseline Results, 1992-2008"
+#| tbl-cap: Baseline Results, 1992-2008
 #| echo: false
 #| results: asis
 
@@ -68,7 +68,7 @@ tar_read(main_models) |>
 ```
 
 ```{r}
-#| tbl-cap: "Lights Up/Down, Time Trend, and Long Differences"
+#| tbl-cap: Lights Up/Down, Time Trend, and Long Differences
 #| echo: false
 #| results: asis
 tar_read(secondary_models) |>
@@ -96,7 +96,7 @@ tar_read(secondary_models) |>
 ```
 
 ```{r}
-#| tbl-cap: "Results for World Bank-Rated Countries"
+#| tbl-cap: Results for World Bank-Rated Countries
 #| results: asis
 #| echo: false
 make_table4 <- function(models_a, models_b, sq_models) {
@@ -154,7 +154,7 @@ make_table4(rated_models$a, rated_models$b, rated_models$sq)
 ```
 
 ```{r}
-#| tbl-cap: "Calibrating the Statistical Model"
+#| tbl-cap: Calibrating the Statistical Model
 #| echo: false
 #| results: asis
 tar_read(solved_model) |>
@@ -176,6 +176,64 @@ tar_read(solved_model) |>
   format_tt(i = 0:-1, linebreak = "<br>") |>
   style_tt(j = 1:5, align = "c")
 ```
+
+```{r}
+#| echo: false
+#| tbl-cap: Average Annual Growth Rates for Bad Data Countries, 1992/93-2005/06
+
+tar_read(growth_rates) |> 
+  inner_join(tar_read(iso2name)) |> 
+  transmute("Country" = country, "ISO" = iso, "WDI GDP<br>(LCU)" = wdi,  "Optimal combination of<br>fitted lights and WDI GDP" = optimal, "Difference" = diff) |> 
+  mutate(across(where(is.numeric), \(x) x * 100)) |> 
+  tt() |> 
+  style_tt(j = 2:4, align = "c") |>
+  style_tt(j = 5, align = "r") |> 
+  style_tt(i = 0, alignv = "m") |> 
+  format_tt(digits = 2, num_fmt = "decimal", num_zero = TRUE, linebreak = "<br>")
+```
+
+```{r}
+#| fig.cap: Growth in Fitted Lights vs. WDI GDP (LCU) for Bad Data Countries, 1992-2006
+#| echo: false
+lambda <- 0.484
+xr <- c(-1, 10.75)
+yr <- c(-1, 8)
+
+iso_lines <- expand_grid(g = c(0, 0.02, 0.04, 0.06, 0.08),
+                         w = seq(-0.02, 0.11, by = 0.001)) |>
+  mutate(lights = (1 + g)^(1 / (1 - lambda)) * (1 + w)^(-lambda / (1 - lambda)) - 1,
+         across(c(g, w, lights), \(x) x * 100))
+
+iso_labs <- iso_lines |>
+  filter(between(w, xr[1], xr[2] - 0.3),
+         between(lights, yr[1] + 0.3, yr[2] - 0.3)) |>
+  slice_max(w, by = g)
+
+tar_read(growth_rates) |>
+  ggplot(aes(x = wdi * 100, y = fitted_lights * 100, label = iso)) +
+  geom_line(data = iso_lines,
+            aes(w, lights, group = g, linetype = "Annualized iso-composite growth lines"),
+            colour = "red2", inherit.aes = FALSE) +
+  geom_text(data = iso_labs, aes(w, lights, label = paste0(g, "%")),
+            hjust = 1, vjust = -0.5, size = 3, colour = "red4",
+            inherit.aes = FALSE) +
+  geom_point(color = "green4") +
+  geom_text(hjust = -0.4, size = 3, color = "green4") +
+  geom_abline(aes(intercept = 0, slope = 1, linetype = "Identity")) +
+  coord_cartesian(xlim = xr, ylim = yr) +
+  labs(x = "Annualized Percent Change in WDI GDP (LCU)",
+       y = "Predicted Annualized Percent Change\nin GDP from Fitted Lights",
+       caption = paste0("Lambda = ", lambda)) +
+  scale_linetype_manual(
+    name = NULL,
+    breaks = c("Identity", "Annualized iso-composite growth lines"),
+    values = c("Identity" = "solid", "Annualized iso-composite growth lines" = "dashed")
+  ) +
+  guides(linetype = guide_legend(override.aes = list(colour = c("black", "red2")))) +
+  theme_classic() +
+  theme(legend.position = "inside", legend.position.inside = c(0.75, 0.1), legend.background = element_blank())
+```
+
 \FloatBarrier
 
 ## Bibliography
