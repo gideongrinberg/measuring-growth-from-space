@@ -10,8 +10,7 @@ list_dmsp_files <- function(dir) {
   parse <- \(pattern, col) {
     tibble(path = list.files(dir, pattern, full.names = T)) |>
       transmute(sat = substr(basename(path), 2, 3),
-                year = as.integer(substr(basename(path), 4, 7)),
-                !!col := path)
+                year = as.integer(substr(basename(path), 4, 7)),!!col := path)
   }
   
   inner_join(
@@ -57,17 +56,15 @@ build_land_weights_tif <- function(grump_zip, template, out = "data/interim/land
   out
 }
 
-build_countries_tif <- function(gpw_zip, template, out = "data/interim/countries.tif") {
+
+build_countries_tif <- function(gpw_zip, template, land_file, out = "data/interim/countries.tif") {
   dir <- ensure_unzipped(gpw_zip)
-  rasterize(
-    vect(file.path(dir, "bnds/ntblnds.shp")),
-    make_template(template),
-    field = "Iso3v10",
-    touches = F,
-    filename = out,
-    wopt = list(datatype = "INT2U"),
-    overwrite = T
-  )
+  tmpl <- make_template(template)
+  carto <- rasterize(vect(file.path(dir, "bnds/ntlbndscarto.shp")), tmpl, field = "Iso3v10", touches = F)
+  base <- rasterize(vect(file.path(dir, "bnds/ntblnds.shp")), tmpl, touches = F)
+  open_water <- !is.na(base) & rast(land_file) == 0
+  r <- mask(carto, open_water, maskvalues = 1)
+  writeRaster(r, out, datatype = "INT2U", overwrite = T)
   out
 }
 

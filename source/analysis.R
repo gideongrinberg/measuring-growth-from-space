@@ -47,8 +47,8 @@ clean_data <- function(lights_data,
     rename(country = iso3)
   
   df <- lights.df |>
-    inner_join(gdp_df, by = c("country", "year")) |>
-    inner_join(electricity_df |> rename(country = iso3),
+    left_join(gdp_df, by = c("country", "year")) |>
+    left_join(electricity_df |> rename(country = iso3),
                by = c("country", "year"))
 }
 

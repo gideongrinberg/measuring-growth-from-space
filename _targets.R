@@ -109,7 +109,7 @@ list(tar_assign({
                                 dmsp$year == 1992] |>
     tar_target(format = "file")
   
-  countries_file <- build_countries_tif(gpw_zip, template_tif) |>
+  countries_file <- build_countries_tif(gpw_zip, template_tif, land_file) |>
     tar_target(format = "file")
   land_file <- build_land_weights_tif(grump_zip, template_tif) |>
     tar_target(format = "file")
