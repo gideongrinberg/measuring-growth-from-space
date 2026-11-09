@@ -103,6 +103,18 @@ list(tar_assign({
     rename(country = iso3) |>
     tar_target()
   
+  wb_quality_pdf <- tar_download(
+    urls = c(
+      "https://documents1.worldbank.org/curated/en/795451468314360987/pdf/352920Building1Development1Progress.pdf"
+    ),
+    paths = c("data/raw/wb2002_quality.pdf")
+  )
+  
+  wb_quality.df <- wb_quality_pdf |> 
+    parse_wb2002() |> 
+    score_wb2002() |> 
+    tar_target()
+  
   # Preprocess data
   dmsp <- list_dmsp_files("data/raw/dmsp") |> tar_target(cue = tar_cue(mode = "always"))
   template_tif <- dmsp$lights[dmsp$sat == "10" &
@@ -120,4 +132,6 @@ list(tar_assign({
   sat_year_data <- process_dmsp_sat_year(dmsp, countries_file, land_file) |>
     tar_target(pattern = map(dmsp))
   lights_data <- sat_year_data |> tar_target()
-}), tar_analysis, tar_quarto(paper, "./paper/paper.qmd", quiet = F))
+}),
+tar_analysis,
+tar_quarto(paper, "./paper/paper.qmd", quiet = F))

@@ -112,5 +112,5 @@ tar_read(secondary_models) |> regtab(
   )
 )
 ```
-\clearpage
+
 ## Bibliography
