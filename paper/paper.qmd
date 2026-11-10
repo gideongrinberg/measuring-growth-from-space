@@ -135,52 +135,41 @@ The original results reproduce closely. The baseline elasticity of GDP with resp
 
 ## Methods and Theoretical Framework
 
-Henderson, Storeygard, and Weil (hereinafter, "HSW") treat true income growth $y$ as unobserved and specify two estimating equations. First, measured GDP growth $z$ for country $j$ in year $t$ is given by
-$$
-z_{j,t} = y_{j,t} + \varepsilon_{z,j}.
-$$
-
-Next, they assume a constant elasticity relationship between true income ($Y$) and growth in lights ($X$): $X = Y^\beta$, where $\beta$ is the elasticity of lights with
-respect to income. Thus, the relationship between measured growth in lights $x$ and true growth in true income $y$ is given by
-$$
-x_{j,t} = \beta y_{j,t} + \varepsilon_{z,j}.
+Henderson, Storeygard, and Weil (hereinafter, "HSW") treat true income $Y$ as unobserved. Let lowercase letters denote logs, so that $y_{j,t} = \ln Y_{j,t}$ for country $j$ in year $t$. Measured GDP equals true income plus error, $$
+z_{j,t} = y_{j,t} + \varepsilon_{z,j,t}.
 $$
 
-The errors $\varepsilon_z$ and $\varepsilon_x$ are uncorrelated with each other and with $y$. Denote their variances by $\sigma_z^2$ and $\sigma_x^2$, and the variance of true growth by $\sigma_y^2$. For prediction, the paper regresses measured GDP growth on lights growth. The resulting coefficient,
+HSW also assume a constant-elasticity relationship between lights $X$ and true income, $X = Y^\beta$, where $\beta$ is the elasticity of lights with respect to income. Taking logs and allowing for measurement error in lights gives $$
+x_{j,t} = \beta y_{j,t} + \varepsilon_{x,j,t}.
 $$
+
+The errors $\varepsilon_z$ and $\varepsilon_x$ are uncorrelated with each other and with $y$. Denote their variances by $\sigma_z^2$ and $\sigma_x^2$, and the variance of true growth by $\sigma_y^2$. For prediction, the paper regresses measured GDP growth on lights growth. The resulting coefficient, $$
 \psi = \frac{\operatorname{cov}(x, z)}{\operatorname{var}(x)} = \frac{\beta \sigma_y^2}{\beta^2 \sigma_y^2 + \sigma_x^2},
-$$
-is an estimate of the inverse of the elasticity of lights with
-respect to income, scaled down by the share of the variance in lights growth that reflects true income. It is therefore a biased estimate of $1/\beta$, but it is the best linear predictor of income growth from lights growth, and because the error in measured GDP is uncorrelated with lights, it can be estimated without knowing the true income.
+$$ is an estimate of the inverse of the elasticity of lights with respect to income, scaled down by the share of the variance in lights growth that reflects true income. It is therefore a biased estimate of $1/\beta$, but it is the best linear predictor of income growth from lights growth, and because the error in measured GDP is uncorrelated with lights, it can be estimated without knowing the true income.
 
-Throughout the paper, $z$ and $x$ are log levels, and the following regression specification is employed:
-$$
+In practice, how bright a country is at a given income level also depends on factors unrelated to income, including population density and differences in satellite sensors between years. Country and year fixed effects absorb these trends, giving the specification $$
 \ln \text{GDP}_{jt} = \psi \ln(\text{lights}/\text{area})_{jt} + c_j + d_t + e_{jt},
-$$
-where $c_j$ represents country fixed effects and $d_t$ represents year fixed effects.
+$$ where $c_j$ represents country fixed effects and $d_t$ represents year fixed effects. The paper also employs a long differences specification, which regresses change in log GDP between 1992/93 and 2005/06 on the change in log lights.
 
-Given fitted values $\hat z_j = \hat\psi x_j$, HSW construct a composite estimate of true growth: $\hat y_j = \lambda z_j + (1 - \lambda) \hat z_j$. The weight on measured GDP that minimizes the error of the composite is
-$$
+Given fitted values $\hat z_j = \hat\psi x_j$, HSW construct a composite estimate of true growth: $\hat y_j = \lambda z_j + (1 - \lambda) \hat z_j$. The weight on measured GDP that minimizes the error of the composite is $$
 \lambda^* = \frac{\sigma_x^2 \sigma_y^2}{\sigma_z^2 (\beta^2 \sigma_y^2 + \sigma_x^2) + \sigma_x^2 \sigma_y^2}.
 $$
 
-The difficulty is that $\lambda^*$ depends on four unknown parameters, while the data provide only three,
-$$
+The difficulty is that $\lambda^*$ depends on four unknown parameters, while the data provide only three, $$
 \operatorname{var}(z) = \sigma_y^2 + \sigma_z^2, \qquad \operatorname{var}(x) = \beta^2 \sigma_y^2 + \sigma_x^2, \qquad \operatorname{cov}(x, z) = \beta \sigma_y^2.
 $$
 
-The authors address this challenge with outside information on data quality. They divide countries into those with good and bad statistical systems using the World Bank's ratings of statistical capacity, assume that both groups share the same relationship between lights and income but differ in $\sigma_z^2$, and assume a value for the share of the variance of measured GDP growth that is true signal among countries with good data,
-$$
+The authors address this challenge with outside information on data quality. They divide countries into those with good and bad statistical systems using the World Bank's ratings of statistical capacity, assume that both groups share the same relationship between lights and income but differ in $\sigma_z^2$, and assume a value for the share of the variance of measured GDP growth that is true signal among countries with good data, $$
 \phi_g = \frac{\sigma_y^2}{\sigma_y^2 + \sigma_{z,g}^2}.
 $$
 
-To solve the model, HSW fix the value of $\phi_g$. The variance of measured growth among good data countries then gives $\sigma_y^2$, and since bad data countries are assumed to have the same variance of true growth, the rest of their variance pins down $\sigma_{z,b}^2$. With $\sigma_y^2$ known, the covariance of lights and GDP gives $\beta$, and $\sigma_x^2$ is what remains of the variance of lights. The optimal weights for each group then follow from these parameters. 
+To solve the model, HSW fix the value of $\phi_g$. The variance of measured growth among good data countries then gives $\sigma_y^2$, and since bad data countries are assumed to have the same variance of true growth, the rest of their variance pins down $\sigma_{z,b}^2$. With $\sigma_y^2$ known, the covariance of lights and GDP gives $\beta$, and $\sigma_x^2$ is what remains of the variance of lights. The optimal weights for each group then follow from these parameters.
 
 ## Data and Construction
 
-The lights data are the Version 4 stable lights composites from the Defense Meteorological Satellite Program's Operational Linescan System (DMSP-OLS), hosted by the Earth Observation Group (EOG) at the Payne Institute for Public Policy. Each composite averages the nighttime observations of one satellite over one year into a longitude-latitude grid, where each pixel represents the mean intensity of lights on a 30-arcsecond cell. The intensity is reported as a "digital number" (DN) between 0 and 63. HSW rely on 30 satellite years, but I was unable to locate a public copy of the composite produced by satellite F15 in 2008 and therefore analyze only 29 satellite years.
+The lights data are the Version 4 stable lights composites from the Defense Meteorological Satellite Program's Operational Linescan System (DMSP-OLS), hosted by the Earth Observation Group (EOG) at the Payne Institute for Public Policy [@baugh2010]. Each composite averages the nighttime observations of one satellite over one year into a longitude-latitude grid, where each pixel represents the mean intensity of lights on a 30-arcsecond cell. The intensity is reported as a "digital number" (DN) between 0 and 63. HSW rely on 30 satellite years, but I was unable to locate a public copy of the composite produced by satellite F15 in 2008 and therefore analyze only 29 satellite years.
 
-Because grid size varies with latitude, HSW weight each pixel by its land area, which also accounts for coastal pixels that are partly water. Countries are assigned to pixels using the national boundaries from Version 3 of the Gridded Population of the World (CIESIN 2005), which I rasterize onto the lights grid so that each pixel belongs to the country containing its center. Land area per pixel comes from the Global Rural-Urban Mapping Project, Version 1 (CIESIN 2011). The authors used their own rasterization of a cleaned version of the boundaries and an unpublished alpha release of the land area grid, neither of which is available. These deviations, along with the missing F15 data, are the main source of the differences documented below. 
+Because grid size varies with latitude, HSW weight each pixel by its land area, which also accounts for coastal pixels that are partly water. Countries are assigned to pixels using the national boundaries from Version 3 of the Gridded Population of the World (CIESIN 2005), which I rasterize onto the lights grid so that each pixel belongs to the country containing its center. Land area per pixel comes from the Global Rural-Urban Mapping Project, Version 1 (CIESIN 2011). The authors used their own rasterization of a cleaned version of the boundaries and an unpublished alpha release of the land area grid, neither of which is available. These deviations, along with the missing F15 data, are the main source of the differences documented below.
 
 For country $j$ and satellite-year $s$, lights per area is
 
@@ -190,9 +179,9 @@ $$
 
 where $a_p$ is the land area of pixel $p$. As in the original paper, I average this total across the satellites observing each year before dividing by land area and taking logs. Following HSW's procedure, a country-year is excluded if, for any satellite, more than 5 percent of the country's land area has no cloud-free observations. The number of top-coded and unlit pixels are counts of pixels with DN equal to 63 and 0, and the spatial Gini coefficient is the Gini coefficient of pixel DN within the country. All three are computed for each satellite-year and averaged within years. Unlike the lights measure, these variables count pixels without weighting by land area.
 
-Income and electricity data come from the October 2009 vintage of the World Development Indicators. I follow HSW's decision to exclude certain countries from the sample: Bahrain, Singapore, Hong Kong, and Macau are excluded because a large share of their pixels are top-coded, Equatorial Guinea because nearly all of its lights come, from gas flares, and Serbia and Montenegro because their borders changed during the period. 
+Income and electricity data come from the October 2009 vintage of the World Development Indicators. I follow HSW's decision to exclude certain countries from the sample: Bahrain, Singapore, Hong Kong, and Macau are excluded because a large share of their pixels are top-coded, Equatorial Guinea because nearly all of its lights come from gas flares, and Serbia and Montenegro because their borders changed during the period.
 
-The data quality ratings come from Appendix A of @worldbank2002, which reports, for each country, ten indicators of statistical practice such as the base year of the national accounts, the balance of payments manual in use, and the dates of the most recent population and agricultural censuses. I score each indicator using the rules stated in the appendix and sum the scores to obtain a rating from 0 to 10. As in the original paper, I keep the 122 countries that appear in both of the report's country lists, which drops Puerto Rico, Saudi Arabia, and Tunisia, and classify countries rated 3 or below as having bad data. The rated subsample contains 118 countries in the panel and 113 in long differences, of which 30 have scores less than 3.
+The data quality ratings come from Appendix A of @worldbank2002, which reports, for each country, ten indicators of statistical practice such as the base year of the national accounts, the balance of payments manual in use, and the dates of the most recent population and agricultural censuses. I score each indicator using the rules stated in the appendix and sum the scores to obtain a rating from 0 to 10. As in the original paper, I keep the 122 countries that appear in both of the report's country lists, which drops Puerto Rico, Saudi Arabia, and Tunisia, and classify countries rated 3 or below as having bad data. The rated subsample contains 118 countries in the panel and 113 in long differences, of which 30 have scores of 3 or below.
 
 ## Results
 
@@ -305,7 +294,7 @@ make_table4 <- function(models_a, models_b, sq_models) {
       "countries", "Countries", 0,
       "r2_any", "(Within) $R^2$", 3
     ),
-    fmt = 4,
+    fmt = \(x) num(x, 3),
     stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
     escape = F,
     output = "tinytable"
@@ -360,8 +349,8 @@ tar_read(solved_model) |>
 tar_read(growth_rates) |> 
   inner_join(tar_read(iso2name)) |> 
   transmute("Country" = country, "ISO" = iso, "WDI GDP<br>(LCU)" = wdi, "Fitted<br>lights" = fitted_lights, "Optimal combination of<br>fitted lights and WDI GDP" = optimal, "Revision$^\\dagger$" = diff) |> 
-  mutate(across(where(is.numeric), \(x) x * 100)) |> 
-  tt(notes = "$^\\dagger$Revision is the annualized gap between composite and WDI growth, $\\displaystyle 100\\exp{\\frac{\\delta_c - \\delta_o}{13}}$, where $\\delta_c$ is the log change in composite and $\\delta_o$ is the log change in WDI GDP.") |> 
+  mutate(across(where(is.numeric), \(x) num(x * 100))) |> 
+  tt(notes = "$^\\dagger$Revision is the annualized gap between composite and WDI growth, $\\displaystyle 100\\left(e^{(\\Delta_c - \\Delta_o)/13} - 1\\right)$, where $\\Delta_c$ is the log change in composite and $\\Delta_o$ is the log change in WDI GDP.") |> 
   style_tt(j = 2:5, align = "c") |>
   style_tt(j = 6, align = "r") |> 
   style_tt(i = 0, alignv = "m") |> 
@@ -416,7 +405,7 @@ tar_read(growth_rates) |>
     inherit.aes = FALSE
   ) +
   geom_point(color = "green4") +
-  geom_text(hjust = -0.4,
+  ggrepel::geom_text_repel(hjust = -0.4,
             size = 3,
             color = "green4") +
   geom_abline(intercept = 0, slope = 1) +
@@ -430,12 +419,14 @@ tar_read(growth_rates) |>
 
 ## Sources of Discrepancies
 
-Most of the remaining differences can be traced to the construction of the country grid. The original analysis assigned pixels to countries using the authors' own rasterization of a cleaned version of the boundary polygons, which is not publicly documented. As a diagnostic, I recomputed the lights measure using the authors' grid, distributed with their replication materials, while keeping every other part of my construction unchanged. The baseline elasticity falls from `r main1_b` to 0.278, within 0.001 of the published estimate, so the boundary construction accounts for nearly all of the difference in the lights coefficients. The remaining gap is consistent with the two data limitations described above, the missing F15 composite for 2008 and the use of Version 1 of the land area grid in place of the unreleased alpha version.
+Most of the remaining differences can be traced to the construction of the country grid. The original analysis assigned pixels to countries using the authors' own rasterization of a cleaned version of the boundary polygons, which is included in their replication package [@hsw2012replication] but depends on manual edits to the boundaries that are not documented. As a diagnostic, I recomputed the lights measure using the authors' grid, while keeping every other part of my construction unchanged. The baseline elasticity falls from `r main1_b` to 0.278, within 0.001 of the published estimate, so the boundary construction accounts for nearly all of the difference in the lights coefficients. The remaining gap is consistent with the two data limitations described above, the missing F15 composite for 2008 and the use of Version 1 of the land area grid in place of the unreleased alpha version.
 
-The divergence in @tbl-calibration is attributable to a different source. The original HSW paper states that the variance of noise in lights is $\sigma_x^2 = \operatorname{var}(x) - \beta^2 \sigma_y^2 = \operatorname{var}(x) - \beta \operatorname{cov}(x, z)$, and this is the formula used in @tbl-calibration. However, the authors' replication code diverges from the stated model and instead computes $\sigma_x^2 = \operatorname{var}(x) - \operatorname{cov}(x, z)$. The variance of lights noise reported in the original for $\phi_g = 0.9$, 0.128, matches the code's formula, and recomputing the weights for bad data countries with that formula gives `r lambda_code9` at $\phi_g = 0.9$ and `r lambda_code6` at $\phi_g = 0.6$, close to the published 0.484 and 0.263. Because the implied $\beta$ is close to one at the preferred value of $\phi_g$, the two formulas give nearly the same weights there, and the composite estimates in @tbl-growth are essentially unaffected. The difference grows as $\beta$ rises at lower values of $\phi_g$.
+The divergence in @tbl-calibration is attributable to a different source. The original HSW paper states that the variance of noise in lights is $\sigma_x^2 = \operatorname{var}(x) - \beta^2 \sigma_y^2 = \operatorname{var}(x) - \beta \operatorname{cov}(x, z)$, and this is the formula I use in @tbl-calibration. However, the authors' replication code diverges from the stated model and instead computes $\sigma_x^2 = \operatorname{var}(x) - \operatorname{cov}(x, z)$.[^1] The variance of lights noise reported in the original for $\phi_g = 0.9$, 0.128, matches the code's formula, and recomputing the weights for bad data countries with that formula gives `r lambda_code9` at $\phi_g = 0.9$ and `r lambda_code6` at $\phi_g = 0.6$, close to the published 0.484 and 0.263. Because the implied $\beta$ is close to one at the preferred value of $\phi_g$, the two formulas give nearly the same weights there, and the composite estimates in @tbl-growth are essentially unaffected. The difference grows as $\beta$ rises at lower values of $\phi_g$.
+
+[^1]: In `lightspaper_replication.do` in the replication package [@hsw2012replication], line 470 computes `sigmasqx = varx - cov`, which equals $\operatorname{var}(x)-\operatorname{cov}(x, z)=\operatorname{var}(x)-\beta \sigma^2_y$ rather than $\operatorname{var}(x)-\beta^2\sigma^2_y$. 
 
 ## Conclusion
 
-In sum, I have successfully reproduced the central results of @henderson2012 using public data sources. The elasticity of measured GDP with respect to lights is close to 0.3 across specifications. I also show that lights are nearly equally effective lights at tracking expansions and contractions, that the relationship between lights and income is the same for countries with good and bad statistics, and that the GDP of countries with bad statistics is measurably noisier. 
+In sum, I have successfully reproduced the central results of @henderson2012 using public data sources. The elasticity of measured GDP with respect to lights is close to 0.3 across specifications. I also confirm that lights are nearly equally effective at tracking expansions and contractions, that the relationship between lights and income is the same for countries with good and bad statistics, and that the GDP of countries with bad statistics is measurably noisier.
 
-## Bibliography {.unnumbered .unlisted}
+## Bibliography {.unnumbered}
