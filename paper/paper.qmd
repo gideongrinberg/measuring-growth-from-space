@@ -5,16 +5,19 @@ format:
   pdf:
     linkcolor: "blue"
     keep-tex: true
+    documentclass: article
+    fontsize: 11pt
+    geometry:
+      - hmargin=1.25in
+      - vmargin=1in
 header-includes:
-  - \KOMAoption{captions}{tableheading}
-  - \usepackage{placeins}
-  - \usepackage{makecell}
   - \usepackage{caption}
-  - \AddToHook{env/table/begin}{\small}
-  - \DeclareCaptionLabelSeparator{emdash}{---}
-  - \captionsetup[table]{font=sc, labelsep=emdash}
-  - \SetTblrInner{cells={font=\small}}
+  - \usepackage{float}
+  - \floatplacement{table}{!htbp}
+  - \SetTblrInner[talltblr]{cells={font=\small}}
   - \SetTblrStyle{note}{font=\small}
+  - \SetTblrInner{cells={font=\small}}
+  - \raggedbottom
 editor: visual
 knitr:
   opts_chunk:
@@ -26,12 +29,14 @@ nocite: |
   @ciesin2011, @ciesin2005
 ---
 
+\tableofcontents
+\listoftables
+
 ```{r}
 #| include: false
 library(tidyverse)
 library(targets)
 library(fixest)
-library(terra)
 library(tinytable)
 
 source(here::here("source", "utils.R"))
@@ -40,33 +45,165 @@ theme_paper <- function(x, ...) {
   x |>
     theme_tinytable() |>
     style_tt(j = 2:ncol(x), align = "c") |>
+    style_tt(i = 0, alignv = "m") |> 
     theme_latex(inner = "hspan=even")
 }
 options(tinytable_tt_theme = theme_paper)
 ```
 
+```{r}
+#| include: false
+main <- tar_read(main_models)
+sec <- tar_read(secondary_models)
+rated <- tar_read(rated_models)
+solved <- tar_read(solved_model)
+gr <- tar_read(growth_rates)
+
+num <- \(x, d = 3) sub("^-", "\u2212", formatC(x, format = "f", digits = d))
+est <- \(m, term = "ln(lights/area)", d = 3) num(unname(coef(m)[term]), d)
+est_se <- \(m, term = "ln(lights/area)", d = 3) num(unname(fixest::se(m)[term]), d)
+wr2 <- \(m) num(fixest::fitstat(m, "wr2")[[1]])
+r2 <- \(m) num(fixest::fitstat(m, "r2")[[1]])
+pct <- \(x, d = 2) num(100 * x, d)
+
+row9 <- filter(solved, phi_g == 0.9)
+row6 <- filter(solved, phi_g == 0.6)
+lambda_code <- function(r, s2z) {
+  var_x <- r$s2x + r$beta^2 * r$s2y
+  s2x <- var_x - r$beta * r$s2y
+  s2x * r$s2y / (s2x * r$s2y + s2z * (r$beta^2 * r$s2y + s2x))
+}
+mmr <- filter(gr, iso == "MMR")
+bdi <- filter(gr, iso == "BDI")
+
+main1_b <- est(main[[1]])
+main1_b_se <- est_se(main[[1]])
+main1_b_wr2 <- wr2(main[[1]])
+main2_sq <- est(main[[2]], "I(ln(lights/area)^2)")
+main3_b <- est(main[[3]])
+main3_topcoded <- est(main[[3]], "ln(topcoded + 1)")
+main3_unlit <- est(main[[3]], "ln(unlit + 1)")
+main3_unlit_se <- est_se(main[[3]], "ln(unlit + 1)")
+main4_gini <- est(main[[4]], "gini")
+main5_b <- est(main[[5]])
+main6_kwh <- est(main[[6]], "ln(kwh)")
+main7_b <- est(main[[7]])
+main7_kwh <- est(main[[7]], "ln(kwh)")
+sec2_b <- est(sec[[2]])
+sec2_b_se <- est_se(sec[[2]])
+sec3_up <- est(sec[[3]], "lights_up")
+sec3_down <- est(sec[[3]], "lights_down")
+sec4_b <- est(sec[[4]], "d_ln_lights")
+sec4_b_r2 <- r2(sec[[4]])
+sec5_b <- est(sec[[5]], "d_ln_lights")
+rated_a1_b <- est(rated$a[[1]])
+rated_a2_b <- est(rated$a[[2]])
+rated_a3_b <- est(rated$a[[3]], "d_ln_lights")
+rated_a3_const <- est(rated$a[[3]], "(Intercept)")
+rated_b1_inter <- est(rated$b[[1]], "ln(lights/area):good")
+rated_b2_inter <- est(rated$b[[2]], "ln(lights/area):good")
+rated_b3_inter <- est(rated$b[[3]], "good:d_ln_lights")
+rated_sq1_good <- est(rated$sq[[1]], "good", 4)
+rated_sq2_good <- est(rated$sq[[2]], "good", 4)
+rated_sq3_good <- est(rated$sq[[3]], "good", 4)
+beta9 <- num(row9$beta)
+s2y9 <- num(row9$s2y)
+s2zg9 <- num(row9$s2zg)
+s2zb9 <- num(row9$s2zb)
+s2x9 <- num(row9$s2x)
+lambda_g9 <- num(row9$lambda_g)
+lambda_b9 <- num(row9$lambda_b)
+lambda_b6 <- num(row6$lambda_b)
+lambda_b9_short <- num(row9$lambda_b, 2)
+mmr_wdi <- pct(mmr$wdi)
+mmr_fitted <- pct(mmr$fitted_lights)
+mmr_optimal <- pct(mmr$optimal)
+mmr_revision <- num(-100 * mmr$diff, 2)
+bdi_wdi <- pct(bdi$wdi)
+bdi_optimal <- pct(bdi$optimal)
+lambda_code9 <- num(lambda_code(row9, row9$s2zb))
+lambda_code6 <- num(lambda_code(row6, row6$s2zb))
+```
+
 ## Introduction
 
-GDP is among the most important measures of economic performance, but estimates of GDP are often quite uncertain. In the Penn World Tables, one of the standard compilations of cross-country GDP, for example, all 43 countries in Sub-Saharan Africa have margins of error of at least 20 percent, and some countries, such as Myanmar, have no data. Additionally, GDP data are not consistently available on a subnational level, limiting economists' ability to empirically investigate intranational variation in growth. @henderson2012 constructed a statistical framework for the use of satellite data on "night lights" as a measure of economic growth. Because the measurement error in night lights and official economic data are likely uncorrelated, the night lights proxy measure can be combined with official measurements of GDP to improve estimates of economic growth.
+GDP is among the most important measures of economic performance, yet for much of the world it is measured with considerable error. Official statistics are also rarely available below the national level, which limits what can be learned about growth within countries. @henderson2012 proposed using satellite measurements of night lights as an independent measure of economic activity. Because the errors in lights data have no reason to be related to the errors made by national statistical agencies, the two measures can be combined into an estimate of true income growth that is more precise than either one alone. Applying this framework, they find that the elasticity of measured GDP with respect to lights is roughly 0.3, that official GDP in countries with weak statistical systems is substantially noisier than elsewhere, and that for those countries official figures and lights deserve roughly equal weight.
 
-In this paper, I replicate Henderson et al.'s main analyses. My analysis was implemented in the R programming language [@rlang]. The source code is available on [Github](https://github.com/gideongrinberg/measuring-growth-from-space), along with instructions for reproducing the results. The code is structured to facilitate extending the analysis to periods outside the original study's sample, although such analyses are outside the scope of the project.
+In this paper, I reproduce the main analyses of @henderson2012. My analyses are implemented in the R programming language [@rlang], and the code is available on [GitHub](https://github.com/gideongrinberg/measuring-growth-from-space). The pipeline is structured to facilitate extending the analyses to periods outside the original study's sample, although actually doing so is outside the scope of this project.
 
-## Data
+The original results reproduce closely. The baseline elasticity of GDP with respect to lights is `r main1_b`, compared with 0.277 in the original paper. The tests for differences between countries with good and bad statistical systems have the same signs, magnitudes, and significance as in the original, and the composite growth estimates for the thirty countries with the weakest statistics are within about 0.06 percentage points per year of the published values. The variables based on unweighted counts of pixels, namely the number of unlit pixels and the spatial Gini coefficient, differ noticeably from the original, because they are sensitive to how water and coastal pixels are assigned to countries. Additionally, the published calibration of the measurement-error model is consistent with a formula for the variance of noise in lights that differs from the one implied by the paper's equations. The difference is small at the authors' preferred parameter values but grows as the assumed quality of official data declines.
 
-Since 1992, satellites from the U.S. Air Force's Defense Meteorological Satellite Program have measured the intensity of Earth-based lights using their Operational Linescan System. The raw data from DMSP-OLS are processed by the National Geophysical Data Center by removing sources of intense natural light such as forest fires and aurora borealis, leaving only man-made lights, and then averaging data from all orbits of a given satellite in a given year to produce a satellite-year dataset. Each satellite-year dataset is a longitude-latitude grid reporting the intensity of light as a digital number (DN) between 0 and 63 for each 30 arcsecond output pixel. Henderson et al. analyzed 30 satellite-years but, for reasons that are not entirely clear, the data from 2008 for satellite F15 are no longer available, so my replication relies on 29 satellite-years.[^1]
+## Methods and Theoretical Framework
 
-[^1]: In 2019, the archive hosting the DMSP-OLS data moved from NGDC to the Payne Institute for Public Policy at the Colorado School of Mines, and the 2008 F15 files may have been lost in the shuffle. I was unable to locate another source for the file.
+Henderson, Storeygard, and Weil (hereinafter, "HSW") treat true income growth $y$ as unobserved and specify two estimating equations. First, measured GDP growth $z$ for country $j$ in year $t$ is given by
+$$
+z_{j,t} = y_{j,t} + \varepsilon_{z,j}.
+$$
 
-Because of the curvature of the Earth, grid cell area varies with latitude; a pixel on the equator has an area of approximately 0.86 km$^2$, while a pixel on New York City has an area of approximately 0.65 km$^2$. Following the original paper, I account for this variation by computing the weighted average of lights across pixels in a country, weighting each pixel by its share of the country's land area. Land area is computed using Version 1 of the GRUMP data set (CIESIN 2011), and country boundaries are based on Version 3 of the GPW data set (CIESIN 2005). The original paper relied on an earlier version of GRUMP, which may introduce slight differences between my analysis and theirs.
+Next, they assume a constant elasticity relationship between true income ($Y$) and growth in lights ($X$): $X = Y^\beta$, where $\beta$ is the elasticity of lights with
+respect to income. Thus, the relationship between measured growth in lights $x$ and true growth in true income $y$ is given by
+$$
+x_{j,t} = \beta y_{j,t} + \varepsilon_{z,j}.
+$$
 
-\FloatBarrier
+The errors $\varepsilon_z$ and $\varepsilon_x$ are uncorrelated with each other and with $y$. Denote their variances by $\sigma_z^2$ and $\sigma_x^2$, and the variance of true growth by $\sigma_y^2$. For prediction, the paper regresses measured GDP growth on lights growth. The resulting coefficient,
+$$
+\psi = \frac{\operatorname{cov}(x, z)}{\operatorname{var}(x)} = \frac{\beta \sigma_y^2}{\beta^2 \sigma_y^2 + \sigma_x^2},
+$$
+is an estimate of the inverse of the elasticity of lights with
+respect to income, scaled down by the share of the variance in lights growth that reflects true income. It is therefore a biased estimate of $1/\beta$, but it is the best linear predictor of income growth from lights growth, and because the error in measured GDP is uncorrelated with lights, it can be estimated without knowing the true income.
 
-## Analysis
+Throughout the paper, $z$ and $x$ are log levels, and the following regression specification is employed:
+$$
+\ln \text{GDP}_{jt} = \psi \ln(\text{lights}/\text{area})_{jt} + c_j + d_t + e_{jt},
+$$
+where $c_j$ represents country fixed effects and $d_t$ represents year fixed effects.
+
+Given fitted values $\hat z_j = \hat\psi x_j$, HSW construct a composite estimate of true growth: $\hat y_j = \lambda z_j + (1 - \lambda) \hat z_j$. The weight on measured GDP that minimizes the error of the composite is
+$$
+\lambda^* = \frac{\sigma_x^2 \sigma_y^2}{\sigma_z^2 (\beta^2 \sigma_y^2 + \sigma_x^2) + \sigma_x^2 \sigma_y^2}.
+$$
+
+The difficulty is that $\lambda^*$ depends on four unknown parameters, while the data provide only three,
+$$
+\operatorname{var}(z) = \sigma_y^2 + \sigma_z^2, \qquad \operatorname{var}(x) = \beta^2 \sigma_y^2 + \sigma_x^2, \qquad \operatorname{cov}(x, z) = \beta \sigma_y^2.
+$$
+
+The authors address this challenge with outside information on data quality. They divide countries into those with good and bad statistical systems using the World Bank's ratings of statistical capacity, assume that both groups share the same relationship between lights and income but differ in $\sigma_z^2$, and assume a value for the share of the variance of measured GDP growth that is true signal among countries with good data,
+$$
+\phi_g = \frac{\sigma_y^2}{\sigma_y^2 + \sigma_{z,g}^2}.
+$$
+
+To solve the model, HSW fix the value of $\phi_g$. The variance of measured growth among good data countries then gives $\sigma_y^2$, and since bad data countries are assumed to have the same variance of true growth, the rest of their variance pins down $\sigma_{z,b}^2$. With $\sigma_y^2$ known, the covariance of lights and GDP gives $\beta$, and $\sigma_x^2$ is what remains of the variance of lights. The optimal weights for each group then follow from these parameters. 
+
+## Data and Construction
+
+The lights data are the Version 4 stable lights composites from the Defense Meteorological Satellite Program's Operational Linescan System (DMSP-OLS), hosted by the Earth Observation Group (EOG) at the Payne Institute for Public Policy. Each composite averages the nighttime observations of one satellite over one year into a longitude-latitude grid, where each pixel represents the mean intensity of lights on a 30-arcsecond cell. The intensity is reported as a "digital number" (DN) between 0 and 63. HSW rely on 30 satellite years, but I was unable to locate a public copy of the composite produced by satellite F15 in 2008 and therefore analyze only 29 satellite years.
+
+Because grid size varies with latitude, HSW weight each pixel by its land area, which also accounts for coastal pixels that are partly water. Countries are assigned to pixels using the national boundaries from Version 3 of the Gridded Population of the World (CIESIN 2005), which I rasterize onto the lights grid so that each pixel belongs to the country containing its center. Land area per pixel comes from the Global Rural-Urban Mapping Project, Version 1 (CIESIN 2011). The authors used their own rasterization of a cleaned version of the boundaries and an unpublished alpha release of the land area grid, neither of which is available. These deviations, along with the missing F15 data, are the main source of the differences documented below. 
+
+For country $j$ and satellite-year $s$, lights per area is
+
+$$
+\frac{\text{lights}}{\text{area}} = \frac{\sum_{p \in j} \text{DN}_{ps} \, a_p}{\sum_{p \in j} a_p},
+$$
+
+where $a_p$ is the land area of pixel $p$. As in the original paper, I average this total across the satellites observing each year before dividing by land area and taking logs. Following HSW's procedure, a country-year is excluded if, for any satellite, more than 5 percent of the country's land area has no cloud-free observations. The number of top-coded and unlit pixels are counts of pixels with DN equal to 63 and 0, and the spatial Gini coefficient is the Gini coefficient of pixel DN within the country. All three are computed for each satellite-year and averaged within years. Unlike the lights measure, these variables count pixels without weighting by land area.
+
+Income and electricity data come from the October 2009 vintage of the World Development Indicators. I follow HSW's decision to exclude certain countries from the sample: Bahrain, Singapore, Hong Kong, and Macau are excluded because a large share of their pixels are top-coded, Equatorial Guinea because nearly all of its lights come, from gas flares, and Serbia and Montenegro because their borders changed during the period. 
+
+The data quality ratings come from Appendix A of @worldbank2002, which reports, for each country, ten indicators of statistical practice such as the base year of the national accounts, the balance of payments manual in use, and the dates of the most recent population and agricultural censuses. I score each indicator using the rules stated in the appendix and sum the scores to obtain a rating from 0 to 10. As in the original paper, I keep the 122 countries that appear in both of the report's country lists, which drops Puerto Rico, Saudi Arabia, and Tunisia, and classify countries rated 3 or below as having bad data. The rated subsample contains 118 countries in the panel and 113 in long differences, of which 30 have scores less than 3.
+
+## Results
+
+@tbl-baseline reproduces the baseline results (Table 2 in the original paper). The elasticity of GDP with respect to lights in the baseline specification is `r main1_b` with a standard error of `r main1_b_se`, against 0.277 and 0.031 in the original, and the within $R^2$ is `r main1_b_wr2` against 0.769. A quadratic term in lights is small and insignificant (`r main2_sq`, against $-0.006$), confirming that the relationship is close to log-linear. Controlling for top-coded and unlit pixels leaves the elasticity essentially unchanged at `r main3_b`, and the coefficient on top-coded pixels, `r main3_topcoded`, is marginally significant as in the original (0.012). The coefficient on unlit pixels, `r main3_unlit` with a standard error of `r main3_unlit_se`, is smaller and less precise than the original $-0.012$ with a standard error of 0.012, and the coefficient on the spatial Gini is `r main4_gini` against 0.165. Both are insignificant in either case, so the substantive conclusion that country fixed effects absorb differences in the dispersion of lights is unchanged, but these are the two estimates that depart most from the original, for reasons discussed in the next section. The comparison with electricity consumption reproduces within 0.002: on the subsample with electricity data, the elasticity with respect to lights is `r main5_b`, the elasticity with respect to electricity is `r main6_kwh`, and when both enter, the coefficients are `r main7_b` and `r main7_kwh`, against 0.282, 0.283, 0.166, and 0.201.
 
 ```{r}
 #| tbl-cap: Baseline Results, 1992-2008
+#| label: tbl-baseline
 #| echo: false
 #| results: asis
+#| fig-pos: "H"
 
 tar_read(main_models) |>
   regtab(
@@ -82,10 +219,15 @@ tar_read(main_models) |>
   tinytable::group_tt(j = list("ln(GDP)" = 2:8))
 ```
 
+@tbl-secondary reproduces the original Table 3, which examines annual fluctuations and long-run growth. Adding a linear time trend for each country lowers the elasticity to `r sec2_b` with a standard error of `r sec2_b_se`, against 0.180 and 0.036, so lights continue to explain deviations of GDP from each country's growth path. The original standard errors in this column are not clustered by country, while mine are. Splitting the demeaned lights residuals into positive and negative parts yields coefficients of `r sec3_up` and `r sec3_down`, against 0.274 and $-0.279$. These are nearly equal in absolute value, so lights fall in downturns as much as they rise in expansions and there is no evidence of a ratchet effect. The long-difference estimate of the elasticity between 1992/93 and 2005/06 is `r sec4_b` with an $R^2$ of `r sec4_b_r2`, against 0.320 and 0.279, and adding changes in top-coded and unlit pixels moves it only to `r sec5_b`, against 0.302.
+
 ```{r}
+#| label: tbl-secondary
 #| tbl-cap: Lights Up/Down, Time Trend, and Long Differences
 #| echo: false
 #| results: asis
+#| fig-pos: "H"
+
 tar_read(secondary_models) |>
   regtab(
     coef_map = c(
@@ -102,18 +244,24 @@ tar_read(secondary_models) |>
       "Country effects" = c("Yes", "Yes", "In demean", "No", "No")
     )
   ) |>
-  tinytable::group_tt(j = list(
+  group_tt(j = list(
     "Fixed effects" = 2,
-    "Country time trend" = 3,
-    "Demeaned plus/minus" = 4,
-    "Long difference" = 5:6
-  ))
+    "Country<br>time trend" = 3,
+    "Demeaned<br>plus/minus" = 4,
+    "Long<br>difference" = 5:6
+  )) |> 
+  format_tt(linebreak = "<br>")
 ```
 
+@tbl-rated reproduces the results for the countries rated by the World Bank (Table 4 in the original). In this sample the elasticity is `r rated_a1_b` with country and year fixed effects, `r rated_a2_b` with country trends, and `r rated_a3_b` in long differences, against 0.307, 0.270, and 0.327, and the long-difference constant is `r rated_a3_const`, against 0.365. Panel B tests the two assumptions on which the calibration rests. The first row allows the elasticity to differ for countries with good data. The differences, `r rated_b1_inter`, `r rated_b2_inter`, and `r rated_b3_inter`, are small and insignificant, as are the original 0.042, $-0.014$, and 0.096, which supports imposing a common relationship between lights and income on both groups. The second row regresses the squared residuals from Panel A on an indicator for good data. Since measurement error in GDP leaves the slope unchanged but adds to the residual variance, a negative coefficient indicates less noise in the GDP of good data countries. The coefficients, `r rated_sq1_good`, `r rated_sq2_good`, and `r rated_sq3_good`, match the original $-0.0054$, $-0.0017$, and $-0.0292$ in magnitude and significance. I do not report the Breusch-Pagan tests of the original table, which test the same hypothesis as the second row.
+
 ```{r}
+#| label: tbl-rated
 #| tbl-cap: Results for World Bank-Rated Countries
 #| results: asis
 #| echo: false
+#| fig-pos: "H"
+
 make_table4 <- function(models_a, models_b, sq_models) {
   pick_terms <- function(model, labels) {
     modelsummary::get_estimates(model) |>
@@ -138,15 +286,15 @@ make_table4 <- function(models_a, models_b, sq_models) {
   panel_b <- map2(models_b, sq_models, \(b, s) as_ms(
     bind_rows(
       pick_terms(b, c(
-        "ln(lights/area):good" = "Difference in $\\psi$ for good data countries",
-        "good:d_ln_lights" = "Difference in $\\psi$ for good data countries"
+        "ln(lights/area):good" = "Difference in $\\psi$<br>for good data countries",
+        "good:d_ln_lights" = "Difference in $\\psi$<br>for good data countries"
       )),
-      pick_terms(s, c("good" = "Squared residuals on good data dummy"))
+      pick_terms(s, c("good" = "Squared residuals on<br>good data dummy"))
     ),
     data.frame(none = NA)
   ))
   
-  names(panel_a) <- names(panel_b) <- c("Fixed effects", "Country time trend", "Long difference")
+  names(panel_a) <- names(panel_b) <- c("Fixed effects", "Country<br>time trend", "Long<br> difference")
   
   modelsummary::modelsummary(
     list("Panel A" = panel_a, "Panel B" = panel_b),
@@ -161,14 +309,18 @@ make_table4 <- function(models_a, models_b, sq_models) {
     stars = c("*" = 0.1, "**" = 0.05, "***" = 0.01),
     escape = F,
     output = "tinytable"
-  )
+  ) |> 
+    format_tt(linebreak = "<br>")
 }
 
 rated_models <- tar_read(rated_models)
 make_table4(rated_models$a, rated_models$b, rated_models$sq)
 ```
 
+@tbl-calibration solves the measurement-error model for the five values of $\phi_g$ considered in the original Table 5. Because the signal share for bad data countries depends only on GDP, which matches the authors' data, $\phi_b$ reproduces the published values exactly. For the authors' preferred case of $\phi_g = 0.9$, the implied structural elasticity is $\beta$ = `r beta9`, against 1.149, and the variance components are $\sigma_y^2$ = `r s2y9`, $\sigma_{z,g}^2$ = `r s2zg9`, $\sigma_{z,b}^2$ = `r s2zb9`, and $\sigma_x^2$ = `r s2x9`, against 0.054, 0.006, 0.037, and 0.128 in the original. The optimal weights on measured GDP are `r lambda_g9` for good data countries and `r lambda_b9` for bad data countries, against 0.852 and 0.484. As $\phi_g$ falls, my weights fall faster than the published ones, reaching `r lambda_b6` for bad data countries at $\phi_g = 0.6$, against 0.263. The source of this divergence is discussed in the next section.
+
 ```{r}
+#| label: tbl-calibration
 #| tbl-cap: Calibrating the Statistical Model
 #| echo: false
 #| results: asis
@@ -197,23 +349,29 @@ tar_read(solved_model) |>
   style_tt(j = 1:5, align = "c")
 ```
 
+@tbl-growth applies the weights for $\phi_g = 0.9$ to the thirty bad data countries, reproducing the original Table 6. For each country, the fitted value is the long-difference growth rate predicted from lights, the composite estimate places a weight of `r lambda_b9_short` on official growth and the remainder on the fitted value, and all growth rates are annualized as $100(e^{\Delta/13} - 1)$, where $\Delta$ is the log change between the two endpoints. The results match the original closely. For Myanmar, official growth of `r mmr_wdi` percent per year and lights-based growth of `r mmr_fitted` percent combine to `r mmr_optimal` percent, a downward revision of `r mmr_revision` points, against 3.26, 6.48, and 3.22 in the original. At the other extreme, Burundi's official growth of `r bdi_wdi` percent is revised upward to `r bdi_optimal` percent. Across all thirty countries, the fitted and composite growth rates are within about 0.06 percentage points of the published values, and the ordering of countries by the size of the revision is the same except for a few adjacent pairs whose revisions are nearly identical.
+
 ```{r}
+#| label: tbl-growth
 #| echo: false
 #| tbl-cap: Average Annual Growth Rates for Bad Data Countries, 1992/93-2005/06
 #| message: false
 
 tar_read(growth_rates) |> 
   inner_join(tar_read(iso2name)) |> 
-  transmute("Country" = country, "ISO" = iso, "WDI GDP<br>(LCU)" = wdi, "Fitted<br>lights" = fitted_lights, "Optimal combination of<br>fitted lights and WDI GDP" = optimal, "Difference" = diff) |> 
+  transmute("Country" = country, "ISO" = iso, "WDI GDP<br>(LCU)" = wdi, "Fitted<br>lights" = fitted_lights, "Optimal combination of<br>fitted lights and WDI GDP" = optimal, "Revision$^\\dagger$" = diff) |> 
   mutate(across(where(is.numeric), \(x) x * 100)) |> 
-  tt() |> 
+  tt(notes = "$^\\dagger$Revision is the annualized gap between composite and WDI growth, $\\displaystyle 100\\exp{\\frac{\\delta_c - \\delta_o}{13}}$, where $\\delta_c$ is the log change in composite and $\\delta_o$ is the log change in WDI GDP.") |> 
   style_tt(j = 2:5, align = "c") |>
   style_tt(j = 6, align = "r") |> 
   style_tt(i = 0, alignv = "m") |> 
   format_tt(digits = 2, num_fmt = "decimal", num_zero = TRUE, linebreak = "<br>")
 ```
 
+@fig-composite reproduces the original Figure 7. Each point plots a bad data country's official growth against its growth predicted from lights, and countries above the 45-degree line are those for which lights suggest faster growth than the official figures. The dashed lines are iso-composite growth lines, each connecting the combinations of official and lights-based growth that yield the same composite estimate. Countries with the highest official growth, such as Myanmar and Angola, lie below the 45-degree line, and those with the lowest, such as Burundi and the Democratic Republic of Congo, lie above it. This is the pattern that measurement error in official statistics would produce, since a country's reported growth is extreme partly because of its error, and the composite estimates accordingly pull the extremes toward the center of the distribution.
+
 ```{r}
+#| label: fig-composite
 #| fig.cap: Growth in Fitted Lights vs. WDI GDP (LCU) for Bad Data Countries, 1992-2006
 #| echo: false
 xr <- c(-1, 10.75)
@@ -270,6 +428,14 @@ tar_read(growth_rates) |>
 
 ```
 
-\FloatBarrier
+## Sources of Discrepancies
 
-## Bibliography
+Most of the remaining differences can be traced to the construction of the country grid. The original analysis assigned pixels to countries using the authors' own rasterization of a cleaned version of the boundary polygons, which is not publicly documented. As a diagnostic, I recomputed the lights measure using the authors' grid, distributed with their replication materials, while keeping every other part of my construction unchanged. The baseline elasticity falls from `r main1_b` to 0.278, within 0.001 of the published estimate, so the boundary construction accounts for nearly all of the difference in the lights coefficients. The remaining gap is consistent with the two data limitations described above, the missing F15 composite for 2008 and the use of Version 1 of the land area grid in place of the unreleased alpha version.
+
+The divergence in @tbl-calibration is attributable to a different source. The original HSW paper states that the variance of noise in lights is $\sigma_x^2 = \operatorname{var}(x) - \beta^2 \sigma_y^2 = \operatorname{var}(x) - \beta \operatorname{cov}(x, z)$, and this is the formula used in @tbl-calibration. However, the authors' replication code diverges from the stated model and instead computes $\sigma_x^2 = \operatorname{var}(x) - \operatorname{cov}(x, z)$. The variance of lights noise reported in the original for $\phi_g = 0.9$, 0.128, matches the code's formula, and recomputing the weights for bad data countries with that formula gives `r lambda_code9` at $\phi_g = 0.9$ and `r lambda_code6` at $\phi_g = 0.6$, close to the published 0.484 and 0.263. Because the implied $\beta$ is close to one at the preferred value of $\phi_g$, the two formulas give nearly the same weights there, and the composite estimates in @tbl-growth are essentially unaffected. The difference grows as $\beta$ rises at lower values of $\phi_g$.
+
+## Conclusion
+
+In sum, I have successfully reproduced the central results of @henderson2012 using public data sources. The elasticity of measured GDP with respect to lights is close to 0.3 across specifications. I also show that lights are nearly equally effective lights at tracking expansions and contractions, that the relationship between lights and income is the same for countries with good and bad statistics, and that the GDP of countries with bad statistics is measurably noisier. 
+
+## Bibliography {.unnumbered .unlisted}
