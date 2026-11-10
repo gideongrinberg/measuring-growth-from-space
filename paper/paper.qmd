@@ -7,6 +7,9 @@ format:
     keep-tex: true
     documentclass: article
     fontsize: 11pt
+    toc: true
+    toc-title: "Table of Contents"
+    lot: true
     geometry:
       - hmargin=1.25in
       - vmargin=1in
@@ -28,9 +31,6 @@ csl: "qje.csl"
 nocite: |
   @ciesin2011, @ciesin2005
 ---
-
-\tableofcontents
-\listoftables
 
 ```{r}
 #| include: false
@@ -426,7 +426,7 @@ tar_read(growth_rates) |>
 
 ## Sources of Discrepancies
 
-Most of the remaining differences can be traced to the construction of the country grid. The original analysis assigned pixels to countries using the authors' own rasterization of a cleaned version of the boundary polygons, which is included in their replication package [@hsw2012replication] but depends on manual edits to the boundaries that are not documented. As a diagnostic, I recomputed the lights measure using the authors' grid, while keeping every other part of my construction unchanged. The baseline elasticity falls from `r main1_b` to 0.278, within 0.001 of the published estimate, so the boundary construction accounts for nearly all of the difference in the lights coefficients. The remaining gap is consistent with the two data limitations described above, the missing F15 composite for 2008 and the use of Version 1 of the land area grid in place of the unreleased alpha version.
+Most of the remaining differences can be traced to the construction of the country grid. The original analysis assigned pixels to countries using the authors' own rasterization of a cleaned version of the boundary polygons, which is included in their replication package [@hsw2012replication] but depends on manual edits to the boundaries that are not documented. As a diagnostic, I recomputed the lights measure using the authors' grid while keeping every other part of my construction unchanged. The baseline elasticity falls from `r main1_b` to 0.278, within 0.001 of the published estimate, so the boundary construction accounts for nearly all of the difference in the lights coefficients. The remaining gap is consistent with the two data limitations described above: the missing F15 composite for 2008 and the use of Version 1 of the land area grid in place of the unreleased alpha version.
 
 The divergence in @tbl-calibration is attributable to a different source. The original HSW paper states that the variance of noise in lights is $\sigma_x^2 = \operatorname{var}(x) - \beta^2 \sigma_y^2 = \operatorname{var}(x) - \beta \operatorname{cov}(x, z)$, and this is the formula I use in @tbl-calibration. However, the authors' replication code diverges from the stated model and instead computes $\sigma_x^2 = \operatorname{var}(x) - \operatorname{cov}(x, z)$.[^1] The variance of lights noise reported in the original for $\phi_g = 0.9$, 0.128, matches the code's formula, and recomputing the weights for bad data countries with that formula gives `r lambda_code9` at $\phi_g = 0.9$ and `r lambda_code6` at $\phi_g = 0.6$, close to the published 0.484 and 0.263. Because the implied $\beta$ is close to one at the preferred value of $\phi_g$, the two formulas give nearly the same weights there, and the composite estimates in @tbl-growth are essentially unaffected. The difference grows as $\beta$ rises at lower values of $\phi_g$.
 
