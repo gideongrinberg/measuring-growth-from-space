@@ -50,28 +50,6 @@ tar_option_set(
 tar_source("source/")
 # tar_source("other_functions.R") # Source other scripts as needed.
 
-# Replace the target list below with your own:
-# list(
-#   tar_target(gpw_zip, "data/raw/gl_gpwv3_ntlbnd_shp.zip", format = "file"),
-#   tar_target(grump_zip, "data/raw/gl_grumpv1_area_ascii_30.zip", format = "file"),
-#   tar_target(dmsp, list_dmsp_files("data/raw/dmsp"), cue = tar_cue("always")),
-#
-#   # Preprocess spatial data
-#   tar_target(countries, load_country_borders(gpw_zip)),
-#   tar_target(template_file, dmsp$lights[1], format = "file"),
-#   tar_target(land_file, build_land_area(grump_zip, template_file), format = "file"),
-#   tar_target(country_land_area, calculate_country_land_area(land_file, countries)),
-#
-#   # Process each satellite-year
-#   tar_target(lights_file, dmsp$lights, pattern = map(dmsp), format = "file"),
-#   tar_target(cloud_file, dmsp$cloud_cov, pattern = map(dmsp), format = "file"),
-#   tar_target(stats,
-#     process_dmsp_sat_year(lights_file, cloud_file, countries, land_file, country_land_area) |>
-#       mutate(sat = dmsp$sat, year = dmsp$year, .before = 1),
-#     pattern = map(dmsp, lights_file, cloud_file)
-#   )
-# )
-
 list(tar_assign({
   # Download data (geospatial)
   gpw_zip <- download_dataverse_file(
