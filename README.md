@@ -1,10 +1,14 @@
 # Replication of "Measuring Economic Growth From Outer Space"
 
-This repository replicates Henderson, Storeygard & Weil (2012), "Measuring Economic Growth from Outer Space," *American Economic Review* 102(2): 994–1028. The pipeline is written in R and orchestrated with `targets`. It builds country-level night lights statistics from DMSP-OLS satellite composites, and reproduces the paper's tables.
+Author: Gideon Grinberg • [Read the paper](https://github.com/gideongrinberg/measuring-growth-from-space/paper/paper.pdf?raw=true) (PDF)
+
+Official GDP figures are unreliable in many countries, especially those with weak statistical agencies. Henderson, Storeygard, and Weil (2012) showed that satellite images of night lights can serve as an independent measure of economic activity. Errors in lights data have no reason to be related to errors in national accounts, so the two can be combined into a better estimate of true growth than either gives alone.
+
+This repository reproduces the paper's main analyses from public data sources by rebuilding the country-level lights data from about 8 GB of raw satellite rasters and re-estimating the main models in R. The pipeline is orchestrated using the `{targets}` package.
 
 ## Replication Instructions
 
-Running the pipeline requires R v4.6.2 and a computer with around 40gb of storage.
+Running the pipeline requires R v4.6.2 and a computer with around 12gb of free storage. On my MacBook Pro with 24gb RAM and an M4 processor, the entire pipeline runs in around 10-15 minutes.
 
 1.  **Install dependencies:** Download or clone the repository and open it in R or RStudio. If you do not have `renv` installed, run `install.packages("renv")`. Then run `renv::restore()` to install all the dependencies.
 
