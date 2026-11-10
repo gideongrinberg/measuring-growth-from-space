@@ -1,6 +1,6 @@
 # Replication of "Measuring Economic Growth From Outer Space"
 
-Author: Gideon Grinberg • [Read the paper](https://github.com/gideongrinberg/measuring-growth-from-space/paper/paper.pdf?raw=true) (PDF)
+Author: Gideon Grinberg • [Read the paper](https://gideongrinberg.github.io/measuring-growth-from-space/paper/paper.pdf) (PDF)
 
 Official GDP figures are unreliable in many countries, especially those with weak statistical agencies. Henderson, Storeygard, and Weil (2012) showed that satellite images of night lights can serve as an independent measure of economic activity. Errors in lights data have no reason to be related to errors in national accounts, so the two can be combined into a better estimate of true growth than either gives alone.
 
