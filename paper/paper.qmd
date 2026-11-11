@@ -1,5 +1,5 @@
 ---
-title: "Replication of \"Measuring Growth from Outer Space\""
+title: "Replication of \"Measuring Economic Growth from Outer Space\""
 author: "Gideon Grinberg"
 format: 
   pdf:
@@ -178,12 +178,12 @@ To solve the model, HSW fix the value of $\phi_g$. The variance of measured grow
 
 The lights data are the Version 4 stable lights composites from the Defense Meteorological Satellite Program's Operational Linescan System (DMSP-OLS), hosted by the Earth Observation Group (EOG) at the Payne Institute for Public Policy [@baugh2010]. Each composite averages the nighttime observations of one satellite over one year into a longitude-latitude grid, where each pixel represents the mean intensity of lights on a 30-arcsecond cell. The intensity is reported as a "digital number" (DN) between 0 and 63. HSW rely on 30 satellite years, but I was unable to locate a public copy of the composite produced by satellite F15 in 2008 and therefore analyze only 29 satellite years.
 
-Because grid size varies with latitude, HSW weight each pixel by its land area, which also accounts for coastal pixels that are partly water. Countries are assigned to pixels using the national boundaries from Version 3 of the Gridded Population of the World (CIESIN 2005), which I rasterize onto the lights grid so that each pixel belongs to the country containing its center. Land area per pixel comes from the Global Rural-Urban Mapping Project, Version 1 (CIESIN 2011). The authors used their own rasterization of a cleaned version of the boundaries and an unpublished alpha release of the land area grid, neither of which is available. These deviations, along with the missing F15 data, are the main source of the differences documented below.
+Because grid size varies with latitude, HSW weight each pixel by its land area, which also accounts for coastal pixels that are partly water. Countries are assigned to pixels using the national boundaries from Version 3 of the Gridded Population of the World (CIESIN 2005), which I rasterize onto the lights grid so that each pixel belongs to the country containing its center. Land area per pixel comes from the Global Rural-Urban Mapping Project, Version 1 (CIESIN 2011). The authors used their own rasterization of a cleaned version of the boundaries and an unpublished alpha release of the land area grid. Although both files are in the author's replication package, neither is available from a public source, and the manual edits to the boundaries rasterization are not documented. These deviations, along with the missing F15 data, are the main source of the differences documented below.
 
-For country $j$ and satellite-year $s$, lights per area is
+For country $j$ and satellite-year $s$, lights per area is 
 $$
 \frac{\text{lights}}{\text{area}} = \frac{\sum_{p \in j} \text{DN}_{ps} \, a_p}{\sum_{p \in j} a_p},
-$$
+$$ 
 where $a_p$ is the land area of pixel $p$. As in the original paper, I average this total across the satellites observing each year before dividing by land area and taking logs. Following HSW's procedure, a country-year is excluded if, for any satellite, more than 5 percent of the country's land area has no cloud-free observations. The number of top-coded and unlit pixels are counts of pixels with DN equal to 63 and 0, and the spatial Gini coefficient is the Gini coefficient of pixel DN within the country. All three are computed for each satellite-year and averaged within years. Unlike the lights measure, these variables count pixels without weighting by land area.
 
 Income and electricity data come from the October 2009 vintage of the World Development Indicators. I follow HSW's decision to exclude certain countries from the sample: Bahrain, Singapore, Hong Kong, and Macau are excluded because a large share of their pixels are top-coded, Equatorial Guinea because nearly all of its lights come from gas flares, and Serbia and Montenegro because their borders changed during the period.
@@ -345,7 +345,7 @@ tar_read(solved_model) |>
   style_tt(j = 1:5, align = "c")
 ```
 
-@tbl-growth applies the weights for $\phi_g = 0.9$ to the thirty bad data countries, reproducing the original Table 6. For each country, the fitted value is the long-difference growth rate predicted from lights, the composite estimate places a weight of `r lambda_b9_short` on official growth and the remainder on the fitted value, and all growth rates are annualized as $100(e^{\Delta/13} - 1)$, where $\Delta$ is the log change between the two endpoints. The results match the original closely. For Myanmar, official growth of `r mmr_wdi` percent per year and lights-based growth of `r mmr_fitted` percent combine to `r mmr_optimal` percent, a downward revision of `r mmr_revision` points, against 3.26, 6.48, and 3.22 in the original. At the other extreme, Burundi's official growth of `r bdi_wdi` percent is revised upward to `r bdi_optimal` percent. Across all thirty countries, the fitted and composite growth rates are within about 0.06 percentage points of the published values, and the ordering of countries by the size of the revision is the same except for a few adjacent pairs whose revisions are nearly identical.
+@tbl-growth applies the weights for $\phi_g = 0.9$ to the thirty bad data countries, reproducing the original Table 6. For each country, the fitted value is the long-difference growth rate predicted from lights, the composite estimate places a weight of `r lambda_b9_short` on official growth and the remainder on the fitted value, and all growth rates are annualized as $100(e^{\Delta/13} - 1)$, where $\Delta$ is the log change between the two endpoints. The results match the original closely. For Myanmar, official growth of `r mmr_wdi` percent per year and lights-based growth of `r mmr_fitted` percent combine to `r mmr_optimal` percent, a downward revision of `r mmr_revision` percent per year (as defined in Table 5), against 3.26, 6.48, and 3.22 in the original. At the other extreme, Burundi's official growth of `r bdi_wdi` percent is revised upward to `r bdi_optimal` percent. Across all thirty countries, the fitted and composite growth rates are within about 0.06 percentage points of the published values, and the ordering of countries by the size of the revision is the same except for a few adjacent pairs whose revisions are nearly identical.
 
 ```{r}
 #| label: tbl-growth
@@ -373,15 +373,7 @@ tar_read(growth_rates) |>
 xr <- c(-1, 10.75)
 yr <- c(-1, 8)
 
-iso_lines <- expand_grid(g = c(0, 0.02, 0.04, 0.06, 0.08),
-                         w = seq(-0.02, 0.11, by = 0.001)) |>
-  mutate(lights = (1 + g)^(1 / (1 - lambda)) * (1 + w)^(-lambda / (1 - lambda)) - 1, across(c(g, w, lights), \(x) x * 100))
-
-iso_labs <- iso_lines |>
-  filter(between(w, xr[1], xr[2] - 0.3), between(lights, yr[1] + 0.3, yr[2] - 0.3)) |>
-  slice_max(w, by = g)
-
-iso_lines <- expand_grid(g = c(0, 0.02, 0.04, 0.06, 0.08),
+iso_lines <- expand_grid(g = seq(0, 0.08, by = 0.02),
                          w = seq(-0.02, 0.11, by = 0.001)) |>
   mutate(lights = (1 + g)^(1 / (1 - lambda)) * (1 + w)^(-lambda / (1 - lambda)) - 1, across(c(g, w, lights), \(x) x * 100))
 
@@ -419,7 +411,7 @@ tar_read(growth_rates) |>
   coord_cartesian(xlim = xr, ylim = yr) +
   labs(x = "Annualized Percent Change in WDI GDP (LCU)",
        y = "Predicted Annualized Percent Change\nin GDP from Fitted Lights",
-       caption = bquote("Black line: identity. Red dotted lines: annualized iso-composite growth lines." ~ lambda == .(round(lambda, 2)))) +
+       caption = bquote("Black line: identity. Red dashed lines: annualized iso-composite growth lines." ~ lambda == .(round(lambda, 2)))) +
   theme_classic()
 
 ```
@@ -430,7 +422,7 @@ Most of the remaining differences can be traced to the construction of the count
 
 The divergence in @tbl-calibration is attributable to a different source. The original HSW paper states that the variance of noise in lights is $\sigma_x^2 = \operatorname{var}(x) - \beta^2 \sigma_y^2 = \operatorname{var}(x) - \beta \operatorname{cov}(x, z)$, and this is the formula I use in @tbl-calibration. However, the authors' replication code diverges from the stated model and instead computes $\sigma_x^2 = \operatorname{var}(x) - \operatorname{cov}(x, z)$.[^1] The variance of lights noise reported in the original for $\phi_g = 0.9$, 0.128, matches the code's formula, and recomputing the weights for bad data countries with that formula gives `r lambda_code9` at $\phi_g = 0.9$ and `r lambda_code6` at $\phi_g = 0.6$, close to the published 0.484 and 0.263. Because the implied $\beta$ is close to one at the preferred value of $\phi_g$, the two formulas give nearly the same weights there, and the composite estimates in @tbl-growth are essentially unaffected. The difference grows as $\beta$ rises at lower values of $\phi_g$.
 
-[^1]: In `lightspaper_replication.do` in the replication package [@hsw2012replication], line 470 computes `sigmasqx = varx - cov`, which equals $\operatorname{var}(x)-\operatorname{cov}(x, z)=\operatorname{var}(x)-\beta \sigma^2_y$ rather than $\operatorname{var}(x)-\beta^2\sigma^2_y$. 
+[^1]: In `lightspaper_replication.do` in the replication package [@hsw2012replication], line 470 computes `sigmasqx = varx - cov`, which equals $\operatorname{var}(x)-\operatorname{cov}(x, z)=\operatorname{var}(x)-\beta \sigma^2_y$ rather than $\operatorname{var}(x)-\beta^2\sigma^2_y$.
 
 ## Conclusion
 
