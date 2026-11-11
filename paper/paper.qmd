@@ -1,15 +1,13 @@
 ---
-title: "Replication of \"Measuring Economic Growth from Outer Space\""
-author: "Gideon Grinberg"
-format: 
+title: 'Replication of "Measuring Economic Growth from Outer Space"'
+author: Gideon Grinberg
+format:
   pdf:
-    linkcolor: "blue"
-    keep-tex: true
     documentclass: article
     fontsize: 11pt
-    toc: true
-    toc-title: "Table of Contents"
-    lot: true
+    keep-tex: true
+    template-partials:
+      - title.tex
     geometry:
       - hmargin=1.25in
       - vmargin=1in
