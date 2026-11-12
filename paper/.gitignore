@@ -5,3 +5,4 @@ paper_files/
 paper.*
 !paper.pdf
 !paper.qmd
+!title.tex
